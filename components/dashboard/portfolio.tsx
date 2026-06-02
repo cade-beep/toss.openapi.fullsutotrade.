@@ -19,30 +19,30 @@ export default function PortfolioPanel() {
   const portfolioPnLPct = Number(((portfolioPnL / portfolioInitial) * 100).toFixed(2));
 
   return (
-    <div className="flex flex-col bg-zinc-950 border border-zinc-800 rounded p-3 shrink-0 select-none">
-      <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 mb-2 border-b border-zinc-900 pb-1">Account & Portfolio</h2>
+    <div className="flex flex-col bg-zinc-950 border border-zinc-900 rounded p-2.5 shrink-0 select-none">
+      <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 mb-1.5 border-b border-zinc-900/60 pb-1">Account & Portfolio</h2>
       
-      <div className="space-y-2 font-mono">
+      <div className="space-y-1.5 font-mono text-[11px]">
         <div className="flex justify-between items-baseline">
-          <span className="text-zinc-500 text-[11px]">Total Equity:</span>
-          <span className="text-white text-base font-bold">
-            {portfolioTotalValue.toLocaleString()} <span className="text-[10px] text-zinc-500 font-sans">KRW</span>
+          <span className="text-zinc-500 font-sans">Total Equity:</span>
+          <span className="text-white text-sm font-bold">
+            {portfolioTotalValue.toLocaleString()} <span className="text-[9px] text-zinc-500 font-sans">KRW</span>
           </span>
         </div>
         
-        <div className="grid grid-cols-2 gap-2 text-xs border-t border-zinc-900 pt-2">
+        <div className="grid grid-cols-2 gap-2 border-t border-zinc-900/50 pt-1.5">
           <div>
-            <div className="text-[10px] text-zinc-500 font-sans">Cash Balance</div>
+            <div className="text-[9px] text-zinc-500 font-sans">Cash Balance</div>
             <div className="text-zinc-300 font-semibold">{cashBalance.toLocaleString()}</div>
           </div>
           <div>
-            <div className="text-[10px] text-zinc-500 font-sans">Assets Value</div>
+            <div className="text-[9px] text-zinc-500 font-sans">Assets Value</div>
             <div className="text-zinc-300 font-semibold">{portfolioAssetsValue.toLocaleString()}</div>
           </div>
         </div>
 
-        <div className="flex justify-between items-center text-xs border-t border-zinc-900 pt-2">
-          <span className="text-[10px] text-zinc-500 font-sans">Total Unrealized PnL:</span>
+        <div className="flex justify-between items-center border-t border-zinc-900/50 pt-1.5">
+          <span className="text-[9px] text-zinc-500 font-sans">Total Unrealized PnL:</span>
           <span className={`font-semibold ${portfolioPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {portfolioPnL >= 0 ? '+' : ''}{portfolioPnL.toLocaleString()} ({portfolioPnLPct}%)
           </span>

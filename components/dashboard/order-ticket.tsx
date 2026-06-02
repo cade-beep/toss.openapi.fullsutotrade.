@@ -27,24 +27,26 @@ export default function OrderTicketPanel() {
   };
 
   return (
-    <div className="flex flex-col bg-zinc-950 border border-zinc-800 rounded p-3 shrink-0 select-none">
-      <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 mb-2 border-b border-zinc-900 pb-1">Order Ticket</h2>
+    <div className="flex flex-col bg-zinc-950 border border-zinc-900 rounded p-2.5 shrink-0 select-none">
+      <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 mb-1.5 border-b border-zinc-900/60 pb-1">Order Ticket</h2>
       
-      <form onSubmit={handleManualOrderSubmit} className="space-y-3 text-xs">
+      <form onSubmit={handleManualOrderSubmit} className="space-y-2.5 text-[11px]">
         
-        {/* Selected Symbol Quick View */}
-        <div className="flex justify-between items-center p-1.5 bg-zinc-900 border border-zinc-800 rounded text-[11px]">
-          <span className="text-zinc-500 font-sans">Selected Ticker:</span>
-          <span className="text-white font-bold">{activeTicker.name} ({activeTicker.symbol})</span>
+        {/* Selected Ticker Info */}
+        <div className="flex justify-between items-center px-2 py-1 bg-zinc-900/40 border border-zinc-900 rounded text-[10px]">
+          <span className="text-zinc-500 font-sans">Ticker:</span>
+          <span className="text-zinc-200 font-bold">{activeTicker.name} <span className="font-mono text-zinc-500">({activeTicker.symbol})</span></span>
         </div>
 
-        {/* Side Selector (BUY/SELL) */}
-        <div className="grid grid-cols-2 gap-1.5 p-0.5 bg-zinc-900 rounded border border-zinc-800">
+        {/* Side Selector (BUY/SELL Tabs) */}
+        <div className="grid grid-cols-2 gap-1 p-0.5 bg-zinc-900/60 rounded border border-zinc-900/80">
           <button
             type="button"
             onClick={() => setOrderSide('BUY')}
-            className={`py-1 text-center font-bold rounded transition-colors cursor-pointer ${
-              orderSide === 'BUY' ? 'bg-emerald-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
+            className={`py-1 text-center font-bold text-[10px] uppercase rounded transition-colors cursor-pointer ${
+              orderSide === 'BUY' 
+                ? 'bg-[#00d287]/15 border border-[#00d287]/30 text-[#00d287]' 
+                : 'border border-transparent text-zinc-500 hover:text-zinc-300'
             }`}
           >
             매수 (BUY)
@@ -52,8 +54,10 @@ export default function OrderTicketPanel() {
           <button
             type="button"
             onClick={() => setOrderSide('SELL')}
-            className={`py-1 text-center font-bold rounded transition-colors cursor-pointer ${
-              orderSide === 'SELL' ? 'bg-rose-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
+            className={`py-1 text-center font-bold text-[10px] uppercase rounded transition-colors cursor-pointer ${
+              orderSide === 'SELL' 
+                ? 'bg-[#f43f5e]/15 border border-[#f43f5e]/30 text-[#f43f5e]' 
+                : 'border border-transparent text-zinc-500 hover:text-zinc-300'
             }`}
           >
             매도 (SELL)
@@ -61,18 +65,18 @@ export default function OrderTicketPanel() {
         </div>
 
         {/* Type Selector (MARKET/LIMIT) */}
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center py-0.5">
           <span className="text-zinc-500 font-sans">Order Type:</span>
-          <div className="flex gap-2 font-mono">
+          <div className="flex gap-3 font-mono text-[10px]">
             <label className="flex items-center gap-1 cursor-pointer">
               <input
                 type="radio"
                 name="orderType"
                 checked={orderType === 'MARKET'}
                 onChange={() => setOrderType('MARKET')}
-                className="accent-emerald-500"
+                className="accent-[#00d287]"
               />
-              <span>Market</span>
+              <span className={orderType === 'MARKET' ? 'text-zinc-200 font-semibold' : 'text-zinc-500'}>Market</span>
             </label>
             <label className="flex items-center gap-1 cursor-pointer">
               <input
@@ -80,14 +84,14 @@ export default function OrderTicketPanel() {
                 name="orderType"
                 checked={orderType === 'LIMIT'}
                 onChange={() => setOrderType('LIMIT')}
-                className="accent-emerald-500"
+                className="accent-[#00d287]"
               />
-              <span>Limit</span>
+              <span className={orderType === 'LIMIT' ? 'text-zinc-200 font-semibold' : 'text-zinc-500'}>Limit</span>
             </label>
           </div>
         </div>
 
-        {/* Price input (only enabled for LIMIT orders) */}
+        {/* Price input */}
         <div className="flex justify-between items-center">
           <span className="text-zinc-500 font-sans">Price (KRW):</span>
           <input
@@ -95,8 +99,8 @@ export default function OrderTicketPanel() {
             disabled={orderType === 'MARKET'}
             value={orderType === 'MARKET' ? activeTicker.price : orderPrice}
             onChange={(e) => setOrderPrice(Number(e.target.value))}
-            className={`w-32 bg-zinc-900 border rounded px-1.5 py-0.5 text-right font-mono text-white focus:outline-none ${
-              orderType === 'MARKET' ? 'border-zinc-800 text-zinc-500 opacity-60' : 'border-zinc-800 focus:border-zinc-700'
+            className={`w-32 bg-zinc-900 border rounded px-2 py-0.5 text-right font-mono text-zinc-200 focus:outline-none text-[11px] ${
+              orderType === 'MARKET' ? 'border-zinc-900 text-zinc-500 opacity-50 bg-zinc-950/40' : 'border-zinc-900 focus:border-zinc-800'
             }`}
           />
         </div>
@@ -108,7 +112,7 @@ export default function OrderTicketPanel() {
             <button
               type="button"
               onClick={() => setOrderQty(Math.max(1, orderQty - 1))}
-              className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 font-bold"
+              className="w-5 h-5 rounded bg-zinc-900 border border-zinc-850 flex items-center justify-center hover:bg-zinc-800 font-bold cursor-pointer text-zinc-400"
             >
               -
             </button>
@@ -116,26 +120,26 @@ export default function OrderTicketPanel() {
               type="number"
               value={orderQty}
               onChange={(e) => setOrderQty(Math.max(1, Number(e.target.value)))}
-              className="w-16 bg-zinc-900 border border-zinc-800 rounded px-1 py-0.5 text-center font-mono text-white focus:outline-none"
+              className="w-16 bg-zinc-900 border border-zinc-900 rounded py-0.5 text-center font-mono text-zinc-200 focus:outline-none text-[11px]"
             />
             <button
               type="button"
               onClick={() => setOrderQty(orderQty + 1)}
-              className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 font-bold"
+              className="w-5 h-5 rounded bg-zinc-900 border border-zinc-850 flex items-center justify-center hover:bg-zinc-800 font-bold cursor-pointer text-zinc-400"
             >
               +
             </button>
           </div>
         </div>
 
-        {/* Quantity quick shortcuts */}
-        <div className="grid grid-cols-4 gap-1 text-[10px] text-center font-mono shrink-0">
+        {/* Quantity shortcuts */}
+        <div className="grid grid-cols-4 gap-1 text-[9px] text-center font-mono shrink-0">
           {[10, 50, 100, 500].map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => setOrderQty(q)}
-              className="py-1 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 cursor-pointer"
+              className="py-0.5 rounded bg-zinc-900/60 border border-zinc-900 hover:border-zinc-800 hover:text-zinc-300 text-zinc-500 transition-colors cursor-pointer"
             >
               {q}주
             </button>
@@ -143,27 +147,29 @@ export default function OrderTicketPanel() {
         </div>
 
         {/* Order total estimation */}
-        <div className="border-t border-zinc-900 pt-2 font-mono text-[11px] text-zinc-400 space-y-1">
+        <div className="border-t border-zinc-900/60 pt-2 font-mono text-[10px] text-zinc-500 space-y-1">
           <div className="flex justify-between">
             <span className="font-sans text-[10px] text-zinc-500">Estimated Total:</span>
-            <span className="text-white font-semibold">
+            <span className="text-zinc-200 font-bold">
               {(orderQty * (orderType === 'MARKET' ? activeTicker.price : orderPrice)).toLocaleString()} KRW
             </span>
           </div>
-          <div className="flex justify-between text-[10px] text-zinc-500">
-            <span className="font-sans text-[9px] text-zinc-600">Broker Commission:</span>
-            <span>0 KRW (Simulation Free)</span>
+          <div className="flex justify-between text-[9px] text-zinc-600">
+            <span className="font-sans text-zinc-600">Broker Commission:</span>
+            <span>0 KRW (Simulation)</span>
           </div>
         </div>
 
         {/* Place Order Button */}
         <button
           type="submit"
-          className={`w-full py-2 font-bold rounded tracking-wide text-white transition-colors cursor-pointer ${
-            orderSide === 'BUY' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'
+          className={`w-full py-1.5 font-bold rounded tracking-wide text-xs transition-colors cursor-pointer ${
+            orderSide === 'BUY' 
+              ? 'bg-[#00d287] hover:bg-[#00be7a] text-zinc-950' 
+              : 'bg-[#f43f5e] hover:bg-[#e12d4c] text-white'
           }`}
         >
-          {orderSide === 'BUY' ? '매수 주문 전송' : '매도 주문 전송'}
+          {orderSide === 'BUY' ? '매수 주문 전송 (BUY)' : '매도 주문 전송 (SELL)'}
         </button>
       </form>
     </div>

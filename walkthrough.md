@@ -54,3 +54,14 @@ The Next.js 16 build is fully verified, compiling with **zero type or syntax war
 ### 3. Clean Imports & Strict Type Safety
 *   Removed all unused React imports (such as `useRef` and duplicate `useEffect` hooks) to ensure strict production lint and build compliance.
 *   Fixed context interfaces to import standard model components from `types/trading` and `types/strategy`.
+
+### 4. UI Refinement & Information Density Pass
+*   **Geist Sans Typography:** Integrated Next.js `Geist Sans` at the body root of `globals.css` for a beautiful, premium, modern typeface hierarchy.
+*   **Reduced Chart Dominance:** Compacted the stock chart height to `h-[220px]` and SVG graph to `h-28` to let the Positions panel expand dynamically.
+*   **Positions Focus:** Set the Positions panel to `flex-1` to maximize vertical viewport space for active position tracking.
+*   **Aesthetic & Color Harmonization:**
+    *   Transitioned bright/excessive borders to a subtle dark `border-zinc-900` grid.
+    *   Used custom-themed colors (`#00d287` for BUY, `#f43f5e` for SELL) with dynamic chart coloring (grows green/red depending on performance).
+    *   Replaced solid active side selectors in the Order Ticket with ghost-tinted selectors (`bg-emerald-950/15` and `bg-[#f43f5e]/15`).
+*   **AI Prominence:** AI Bot control cards display glowing green status tags (`RUNNING` / `STANDBY`). AI Signal cards are containerized in color-coded boxes and present a monospaced confidence bar (`[■■■■■■■□□□]`) for high visual quality.
+
