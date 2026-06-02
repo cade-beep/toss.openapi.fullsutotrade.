@@ -1,0 +1,71 @@
+'use client';
+
+import React from 'react';
+import { useWorkstation } from '@/lib/context/workstation-context';
+import Header from '@/components/layout/header';
+import Footer from '@/components/layout/footer';
+import PortfolioPanel from '@/components/dashboard/portfolio';
+import WatchlistPanel from '@/components/dashboard/watchlist';
+import MarketChartPanel from '@/components/dashboard/market-chart';
+import PositionsPanel from '@/components/dashboard/positions';
+import OrderTicketPanel from '@/components/dashboard/order-ticket';
+import AIStrategiesPanel from '@/components/dashboard/ai-strategies';
+
+export default function WorkstationDashboard() {
+  const { isHydrated, toast } = useWorkstation();
+
+  // If loading local state cache, show loader screen
+  if (!isHydrated) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen w-screen bg-black text-emerald-500 font-mono text-xs gap-2 select-none">
+        <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <span>INITIALIZING WORKSTATION SECURITY SESSION...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-screen w-screen overflow-hidden bg-black text-zinc-300 select-none">
+      
+      {/* Floating Toast Alerts */}
+      {toast && (
+        <div className="absolute top-4 right-4 z-50 flex items-center gap-2 p-3 text-xs font-semibold rounded bg-zinc-900 border border-zinc-700 shadow-2xl text-white">
+          <span className={`w-2 h-2 rounded-full ${
+            toast.type === 'success' ? 'bg-emerald-500' : toast.type === 'error' ? 'bg-rose-500' : 'bg-blue-500'
+          }`} />
+          {toast.message}
+        </div>
+      )}
+
+      {/* Header Layout */}
+      <Header />
+
+      {/* Main Multi-Pane Workspace Grid */}
+      <div className="flex flex-1 overflow-hidden p-1 gap-1">
+        
+        {/* Left Sidebar (Account & Watchlist) */}
+        <div className="flex flex-col w-80 shrink-0 gap-1 overflow-hidden">
+          <PortfolioPanel />
+          <WatchlistPanel />
+        </div>
+
+        {/* Center Panel (Chart & Positions) */}
+        <div className="flex flex-col flex-1 gap-1 overflow-hidden">
+          <MarketChartPanel />
+          <PositionsPanel />
+        </div>
+
+        {/* Right Sidebar (Order Entry & Bots) */}
+        <div className="flex flex-col w-80 shrink-0 gap-1 overflow-hidden">
+          <OrderTicketPanel />
+          <AIStrategiesPanel />
+        </div>
+
+      </div>
+
+      {/* Activity Logs Footer */}
+      <Footer />
+
+    </div>
+  );
+}
