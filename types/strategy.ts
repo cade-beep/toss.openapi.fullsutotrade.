@@ -1,3 +1,5 @@
+import { OrderSide, OrderType } from './trading';
+
 export type SignalAction = 'BUY' | 'SELL' | 'HOLD';
 
 export interface AISignalReasoning {
@@ -55,3 +57,21 @@ export interface BacktestResult {
   }[];
   error?: string;
 }
+
+export interface TradeIntent {
+  symbol: string;
+  side: OrderSide;
+  type: OrderType;
+  qty: number;
+  price?: number;
+  clientOrderId: string;
+  isAI?: boolean;
+  aiConfidence?: number;
+}
+
+export interface RiskValidationResult {
+  isValid: boolean;
+  rejectionReason?: string;
+  adjustedQty?: number;
+}
+

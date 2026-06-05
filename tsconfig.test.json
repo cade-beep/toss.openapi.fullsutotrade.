@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "./.verify-tmp",
+    "esModuleInterop": true,
+    "strict": false
+  },
+  "include": [
+    "services/trading/verify-pr5d.ts",
+    "services/trading/verify-pr5c.ts",
+    "services/trading/verify-pr5a.ts",
+    "services/trading/verify-pr5b.ts",
+    "services/trading/rate-limiter.ts",
+    "services/trading/circuit-breaker.ts",
+    "services/trading/toss-api.ts",
+    "services/trading/interface.ts",
+    "services/trading/factory.ts",
+    "lib/redis.ts",
+    "lib/**/*.ts",
+    "types/**/*.ts",
+    "services/**/*.ts"
+  ]
+}

@@ -1,6 +1,6 @@
 -- Revert Phase 1 Data Layer Changes
 
--- 1. Drop the views and functions
+-- 1. Drop the views and triggers
 DROP TRIGGER IF EXISTS portfolio_view_insert ON public.portfolio;
 DROP FUNCTION IF EXISTS public.portfolio_insert_handler();
 
@@ -10,6 +10,7 @@ DROP VIEW IF EXISTS public.orders_log;
 
 -- 2. Drop the new RPCs
 DROP FUNCTION IF EXISTS public.execute_trade_v2;
+DROP FUNCTION IF EXISTS public.cancel_trade_v2;
 DROP FUNCTION IF EXISTS public.execute_trade;
 
 -- 3. Restore the original execute_trade RPC (From init_schema)
@@ -115,16 +116,56 @@ BEGIN
 END;
 $$;
 
--- 4. Drop the new tables and types
+-- 4. Backport Data from State tables to Legacy tables to prevent data loss
+DO $$
+BEGIN
+  -- Backport Portfolio Cash Balances
+  UPDATE public.portfolio_legacy pl
+  SET cash_balance = ps.cash_balance,
+      updated_at = ps.updated_at
+  FROM public.portfolio_state ps
+  WHERE pl.user_id = ps.user_id;
+  
+  -- Insert missing Portfolios if any were created during V2
+  INSERT INTO public.portfolio_legacy (user_id, cash_balance, updated_at)
+  SELECT user_id, cash_balance, updated_at FROM public.portfolio_state
+  ON CONFLICT (user_id) DO NOTHING;
+
+  -- Backport Positions
+  UPDATE public.positions_legacy pl
+  SET qty = ps.qty,
+      avg_buy_price = ps.avg_buy_price,
+      updated_at = ps.updated_at
+  FROM public.position_state ps
+  WHERE pl.user_id = ps.user_id AND pl.symbol = ps.symbol;
+  
+  -- Insert missing Positions if any were created during V2
+  INSERT INTO public.positions_legacy (user_id, symbol, qty, avg_buy_price, updated_at)
+  SELECT user_id, symbol, qty, avg_buy_price, updated_at FROM public.position_state
+  ON CONFLICT (user_id, symbol) DO NOTHING;
+  
+  -- Delete empty positions from legacy
+  DELETE FROM public.positions_legacy WHERE qty <= 0;
+
+  -- Backport Orders
+  INSERT INTO public.orders_legacy (id, user_id, symbol, side, type, qty, price, status, created_at)
+  SELECT client_order_id, user_id, symbol, side, type, qty, price, status, created_at FROM public.orders
+  ON CONFLICT (id) DO NOTHING;
+END;
+$$;
+
+-- 5. Drop the new tables and types
 DROP TABLE IF EXISTS public.order_audit_trail CASCADE;
 DROP TABLE IF EXISTS public.broker_execution_events CASCADE;
 DROP TABLE IF EXISTS public.orders CASCADE;
 DROP TABLE IF EXISTS public.position_ledger CASCADE;
 DROP TABLE IF EXISTS public.portfolio_ledger CASCADE;
+DROP TABLE IF EXISTS public.portfolio_state CASCADE;
+DROP TABLE IF EXISTS public.position_state CASCADE;
 
 DROP TYPE IF EXISTS public.order_status_v2;
 
--- 5. Restore original tables
+-- 6. Restore original table names
 ALTER TABLE public.portfolio_legacy RENAME TO portfolio;
 ALTER TABLE public.positions_legacy RENAME TO positions;
 ALTER TABLE public.orders_legacy RENAME TO orders_log;
@@ -141,3 +182,4 @@ ALTER POLICY "Users can delete their own positions_legacy" ON public.positions R
 
 ALTER POLICY "Users can view their own orders_legacy" ON public.orders_log RENAME TO "Users can view their own orders";
 ALTER POLICY "Users can insert their own orders_legacy" ON public.orders_log RENAME TO "Users can insert their own orders";
+

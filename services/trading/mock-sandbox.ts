@@ -1,5 +1,5 @@
 import { TradingService } from './interface';
-import { OrderRequest, OrderResponse, Position, AccountBalance } from '@/types/trading';
+import { OrderRequest, OrderResponse, Position, AccountBalance, OrderV2 } from '@/types/trading';
 
 export class MockTradingService implements TradingService {
   async placeOrder(request: OrderRequest): Promise<OrderResponse> {
@@ -55,5 +55,29 @@ export class MockTradingService implements TradingService {
     if (symbol === '000660') return 150000; // SK Hynix
     return 50000;
   }
+
+  async getOrder(clientOrderId: string): Promise<OrderV2 | null> {
+    return {
+      client_order_id: clientOrderId,
+      broker_order_id: `mock-broker-${clientOrderId}`,
+      symbol: '005930',
+      side: 'BUY',
+      type: 'MARKET',
+      qty: 10,
+      price: 70000,
+      status: 'FILLED',
+      filled_qty: 10,
+      avg_fill_price: 70000,
+      trading_mode: 'SIMULATION',
+      last_sequence_number: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  async fetchOrderFromBroker(clientOrderId: string): Promise<OrderV2 | null> {
+    return this.getOrder(clientOrderId);
+  }
 }
 export const mockTradingService = new MockTradingService();
+

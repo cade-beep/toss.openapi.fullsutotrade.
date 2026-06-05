@@ -770,6 +770,7 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
   }, [state.user, loadUserData]);
 
   // --- ATOMIC TRANSACTION EXECUTION METHOD ---
+  // --- ATOMIC TRANSACTION EXECUTION METHOD ---
   const executeMockTrade = useCallback(async (
     symbol: string,
     side: 'BUY' | 'SELL',
@@ -778,41 +779,55 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
     isAISignal: boolean = false
   ) => {
     if (process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' && supabase && state.user) {
-      const orderId = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
-      
-      const { error } = await supabase!.rpc('execute_trade', {
-        p_order_id: orderId,
-        p_symbol: symbol,
-        p_side: side,
-        p_qty: qty,
-        p_price: price,
-      });
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token || '';
 
-      if (error) {
-        console.error('Database transaction execute_trade error:', error);
-        if (!isAISignal) {
-          showToast(`주문 실패: ${error.message}`, 'error');
-        }
-      } else {
-        const ticker = state.tickers.find((t) => t.symbol === symbol);
-        const name = ticker ? ticker.name : symbol;
-        showToast(`${name} ${qty}주 ${side === 'BUY' ? '매수' : '매도'} 주문 체결 완료 (${isAISignal ? 'AI 자동' : '수동'})`, 'success');
-        
-        // Log transaction locally to update executions ledger
-        dispatch({
-          type: 'ADD_ORDER_LOG',
-          payload: {
-            id: orderId,
-            symbol,
-            side,
-            qty,
-            price,
-            time: new Date().toTimeString().split(' ')[0],
+        const response = await fetch('/api/orders/place', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           },
+          body: JSON.stringify({ symbol, side, type: 'LIMIT', qty, price })
         });
 
-        // Trigger dynamic state re-fetch to sync ledger balance and positions
-        await loadUserData();
+        const resData = await response.json();
+
+        if (!response.ok || resData.error) {
+          const errMsg = resData.error || '주문 요청 실패';
+          console.error('API order placement error:', errMsg);
+          if (!isAISignal) {
+            showToast(`주문 실패: ${errMsg}`, 'error');
+          }
+        } else {
+          const ticker = state.tickers.find((t) => t.symbol === symbol);
+          const name = ticker ? ticker.name : symbol;
+          
+          const statusText = resData.order?.status === 'PENDING' ? '접수 완료 (대기)' : '체결 완료';
+          showToast(`${name} ${qty}주 ${side === 'BUY' ? '매수' : '매도'} 주문 ${statusText} (${isAISignal ? 'AI 자동' : '수동'})`, 'success');
+          
+          // Log transaction locally to update executions ledger
+          dispatch({
+            type: 'ADD_ORDER_LOG',
+            payload: {
+              id: resData.order?.id || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+              symbol,
+              side,
+              qty,
+              price,
+              time: new Date().toTimeString().split(' ')[0],
+            },
+          });
+
+          // Trigger dynamic state re-fetch to sync ledger balance and positions
+          await loadUserData();
+        }
+      } catch (err: any) {
+        console.error('Order placement fetch failed:', err);
+        if (!isAISignal) {
+          showToast(`주문 실패: ${err.message || '네트워크 오류'}`, 'error');
+        }
       }
     } else {
       // Local Sandbox mock execution
@@ -828,44 +843,58 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
       }
 
       let successCount = 0;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
 
       // Sell holdings sequentially to avoid parallel lock contentions on the portfolio row
       for (const pos of state.positions) {
         const ticker = state.tickers.find((t) => t.symbol === pos.symbol);
         const currentPrice = ticker ? ticker.price : pos.avgBuyPrice;
-        const orderId = `PANIC-${Math.floor(1000 + Math.random() * 9000)}`;
 
-        const { error } = await supabase!.rpc('execute_trade', {
-          p_order_id: orderId,
-          p_symbol: pos.symbol,
-          p_side: 'SELL',
-          p_qty: pos.qty,
-          p_price: currentPrice,
-        });
-
-        if (error) {
-          console.error(`Panic sell failed for ${pos.symbol}:`, error);
-        } else {
-          successCount++;
-          dispatch({
-            type: 'ADD_ORDER_LOG',
-            payload: {
-              id: orderId,
+        try {
+          const response = await fetch('/api/orders/place', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
               symbol: pos.symbol,
               side: 'SELL',
+              type: 'LIMIT',
               qty: pos.qty,
-              price: currentPrice,
-              time: new Date().toTimeString().split(' ')[0],
-            },
+              price: currentPrice
+            })
           });
+
+          const resData = await response.json();
+
+          if (!response.ok || resData.error) {
+            console.error(`Panic sell failed for ${pos.symbol}:`, resData.error);
+          } else {
+            successCount++;
+            dispatch({
+              type: 'ADD_ORDER_LOG',
+              payload: {
+                id: resData.order?.id || `PANIC-${Math.floor(1000 + Math.random() * 9000)}`,
+                symbol: pos.symbol,
+                side: 'SELL',
+                qty: pos.qty,
+                price: currentPrice,
+                time: new Date().toTimeString().split(' ')[0],
+              },
+            });
+          }
+        } catch (err: any) {
+          console.error(`Panic sell network error for ${pos.symbol}:`, err);
         }
       }
 
       if (successCount > 0) {
         await loadUserData();
-        showToast('긴급 조치: 모든 보유 포지션 전량 청산 완료', 'success');
+        showToast(`전체 포지션 일괄 매도 요청 완료 (${successCount}개 포지션)`, 'success');
       } else {
-        showToast('긴급 청산 실패: 데이터베이스 오류가 발생했습니다.', 'error');
+        showToast('긴급 청산 실패: 데이터베이스 오류 또는 네트워크 장애가 발생했습니다.', 'error');
       }
     } else {
       dispatch({ type: 'PANIC_SELL_ALL' });
