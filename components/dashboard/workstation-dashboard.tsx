@@ -12,7 +12,7 @@ import OrderTicketPanel from '@/components/dashboard/order-ticket';
 import AIStrategiesPanel from '@/components/dashboard/ai-strategies';
 
 export default function WorkstationDashboard() {
-  const { isHydrated, toast } = useWorkstation();
+  const { isHydrated, toast, isApiConnected } = useWorkstation();
 
   // If loading local state cache, show loader screen
   if (!isHydrated) {
@@ -39,6 +39,26 @@ export default function WorkstationDashboard() {
 
       {/* Header Layout */}
       <Header />
+
+      {/* Connection Status Banner */}
+      <div className={`flex items-center justify-center gap-4 py-1.5 text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+        isApiConnected 
+          ? 'bg-emerald-500/10 border-b border-emerald-500/20 text-emerald-400' 
+          : 'bg-rose-500/10 border-b border-rose-500/20 text-rose-400'
+      }`}>
+        <div className="flex items-center">
+          <span className={`w-1.5 h-1.5 rounded-full mr-2 ${isApiConnected ? 'bg-[#00d287]' : 'bg-rose-500 animate-pulse'}`} />
+          {isApiConnected ? 'Broker Connected' : 'Broker API Not Connected'}
+        </div>
+        {!isApiConnected && (
+          <a
+            href="/broker-settings"
+            className="px-2 py-0.5 rounded bg-rose-950/60 border border-rose-900/40 text-rose-300 hover:bg-rose-900/60 hover:text-rose-100 transition-all cursor-pointer font-sans"
+          >
+            Configure Credentials
+          </a>
+        )}
+      </div>
 
       {/* Main Multi-Pane Workspace Grid */}
       <div className="flex flex-1 overflow-hidden p-1 gap-1">

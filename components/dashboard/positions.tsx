@@ -4,7 +4,27 @@ import React from 'react';
 import { useWorkstation } from '@/lib/context/workstation-context';
 
 export default function PositionsPanel() {
-  const { positions, tickers, executeMockTrade } = useWorkstation();
+  const { positions, tickers, executeTrade, isApiConnected } = useWorkstation();
+
+  if (!isApiConnected) {
+    return (
+      <div className="flex flex-col flex-1 bg-zinc-950 border border-zinc-900 rounded overflow-hidden select-none">
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-900/60 shrink-0">
+          <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Active Positions</h2>
+          <span className="text-[9px] px-1.5 py-0.5 bg-rose-950/40 border border-rose-900/35 text-rose-400 rounded leading-none font-bold uppercase">
+            API Not Connected
+          </span>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <svg className="w-8 h-8 text-zinc-700 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="text-xs text-zinc-400 font-semibold font-sans">Toss API Not Connected</span>
+          <span className="text-[10px] text-zinc-550 max-w-xs mt-1 font-sans">Please configure your API credentials to load live positions and enable trade execution.</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 bg-zinc-950 border border-zinc-900 rounded overflow-hidden select-none">
@@ -58,7 +78,7 @@ export default function PositionsPanel() {
                     </td>
                     <td className="py-1.5 px-3 text-center font-sans">
                       <button
-                        onClick={() => executeMockTrade(pos.symbol, 'SELL', pos.qty, currentPrice)}
+                        onClick={() => executeTrade(pos.symbol, 'SELL', pos.qty, currentPrice)}
                         className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/40 hover:border-rose-900 text-rose-400 transition-colors cursor-pointer"
                       >
                         시장가 청산

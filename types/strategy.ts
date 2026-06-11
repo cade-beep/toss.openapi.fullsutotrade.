@@ -26,7 +26,7 @@ export interface StrategyConfig {
   name: string;
   isActive: boolean;
   allocationPct: number;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
 }
 
 export interface BacktestRequest {
@@ -35,6 +35,8 @@ export interface BacktestRequest {
   startDate: string;
   endDate: string;
   initialCapital: number;
+  params?: Record<string, number>;
+  csvContent?: string;
 }
 
 export interface BacktestResult {
@@ -46,6 +48,8 @@ export interface BacktestResult {
     winRate: number;
     totalTrades: number;
     finalValue: number;
+    totalReturn?: number;
+    profitFactor?: number;
   };
   trades?: {
     date: string;
@@ -54,7 +58,9 @@ export interface BacktestResult {
     qty: number;
     price: number;
     totalValue: number;
+    pnl?: number;
   }[];
+  equityCurve?: { date: string; value: number }[];
   error?: string;
 }
 

@@ -65,24 +65,15 @@ export class RiskEngine {
       .eq('user_id', userId)
       .single();
 
-    if (profileError && profileError.code !== 'PGRST116') {
-      throw new Error(`Failed to fetch risk profile: ${profileError.message}`);
+    if (profileError) {
+      throw new Error(`ConfigurationError: Failed to load risk profile from database for user ${userId}: ${profileError.message}`);
     }
 
-    // Fallback default config if none is seeded in Supabase
-    const config: RiskProfile = profile || {
-      user_id: userId,
-      max_open_positions: 5,
-      max_position_size_value: 10000000,
-      max_order_value: 5000000,
-      max_symbol_exposure_pct: 30.00,
-      max_portfolio_exposure_pct: 100.00,
-      daily_loss_limit: 1000000,
-      kill_switch_active: false,
-      max_trades_per_minute: 10,
-      min_ai_confidence: 0.70,
-      updated_at: new Date().toISOString()
-    };
+    if (!profile) {
+      throw new Error(`ConfigurationError: Risk profile record not found in database for user ${userId}.`);
+    }
+
+    const config: RiskProfile = profile;
 
     const isBuy = intent.side === 'BUY';
     const isSell = intent.side === 'SELL';

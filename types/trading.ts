@@ -54,7 +54,7 @@ export interface BrokerExecutionEvent {
   sequence_number: number;
   filled_qty: number;
   execution_price: number;
-  raw_payload: any;
+  raw_payload: Record<string, unknown>;
   processed_at: string;
 }
 

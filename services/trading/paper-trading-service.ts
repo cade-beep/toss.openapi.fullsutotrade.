@@ -262,4 +262,8 @@ export class PaperTradingService implements TradingService {
       });
     }
   }
+
+  async getMarketPrice(symbol: string): Promise<number> {
+    return this.marketData.getPrice(symbol);
+  }
 }

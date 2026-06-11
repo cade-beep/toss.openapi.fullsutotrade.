@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useWorkstation } from '@/lib/context/workstation-context';
 
 export default function WatchlistPanel() {
-  const { tickers, selectedSymbol, setSelectedSymbol, handleAddTicker, handleRemoveTicker } = useWorkstation();
+  const { tickers, selectedSymbol, setSelectedSymbol, handleAddTicker, handleRemoveTicker, isApiConnected } = useWorkstation();
   const [searchSymbol, setSearchSymbol] = useState('');
   const [searchName, setSearchName] = useState('');
 
@@ -20,7 +20,13 @@ export default function WatchlistPanel() {
     <div className="flex flex-col flex-1 bg-zinc-950 border border-zinc-900 rounded overflow-hidden select-none">
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-900/60 shrink-0">
         <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Watchlist</h2>
-        <span className="text-[9px] px-1 bg-zinc-900 rounded font-mono text-zinc-400">{tickers.length} Symbols</span>
+        {!isApiConnected ? (
+          <span className="text-[8px] px-1.5 py-0.5 rounded bg-rose-950/40 text-rose-400 border border-rose-900/35 leading-none font-bold uppercase font-sans animate-pulse">
+            Market Offline
+          </span>
+        ) : (
+          <span className="text-[9px] px-1 bg-zinc-900 rounded font-mono text-zinc-400">{tickers.length} Symbols</span>
+        )}
       </div>
 
       {/* Watchlist Add Input Form */}
@@ -54,8 +60,14 @@ export default function WatchlistPanel() {
           <thead>
             <tr className="text-[9px] uppercase tracking-wider text-zinc-500 border-b border-zinc-900/60 font-mono">
               <th className="py-1 px-3">Symbol</th>
-              <th className="py-1 px-2 text-right">Price</th>
-              <th className="py-1 px-2 text-right">Chg%</th>
+              {!isApiConnected ? (
+                <th className="py-1 px-2 text-right" colSpan={2}>Market Data Feed</th>
+              ) : (
+                <>
+                  <th className="py-1 px-2 text-right">Price</th>
+                  <th className="py-1 px-2 text-right">Chg%</th>
+                </>
+              )}
               <th className="py-1 px-3 text-center">Action</th>
             </tr>
           </thead>
@@ -76,12 +88,20 @@ export default function WatchlistPanel() {
                     <div className="font-semibold text-zinc-200">{ticker.name}</div>
                     <div className="text-[9px] text-zinc-500 font-mono">{ticker.symbol}</div>
                   </td>
-                  <td className="py-1 px-2 text-right font-mono font-medium text-zinc-100">
-                    {ticker.price.toLocaleString()}
-                  </td>
-                  <td className={`py-1 px-2 text-right font-mono font-semibold ${changeColor}`}>
-                    {ticker.change > 0 ? '+' : ''}{ticker.change}%
-                  </td>
+                  {!isApiConnected ? (
+                    <td className="py-1 px-2 text-right font-mono font-semibold text-rose-500/80 text-[10px]" colSpan={2}>
+                      Market Data Unavailable
+                    </td>
+                  ) : (
+                    <>
+                      <td className="py-1 px-2 text-right font-mono font-medium text-zinc-100">
+                        {ticker.price.toLocaleString()}
+                      </td>
+                      <td className={`py-1 px-2 text-right font-mono font-semibold ${changeColor}`}>
+                        {ticker.change > 0 ? '+' : ''}{ticker.change}%
+                      </td>
+                    </>
+                  )}
                   <td className="py-1 px-3 text-center" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleRemoveTicker(ticker.symbol)}

@@ -92,12 +92,14 @@ export async function POST(request: NextRequest) {
     const message = `${method}${path}${timestamp}${rawPayloadString}`;
     const signature = crypto.createHmac('sha256', secretKey).update(message).digest('hex');
 
-    // 4. Check if we should execute Mock Sandbox or forward to Real Toss API
+    // 4. Verify TOSS_API_URL and block simulation requests
     const tossApiUrl = process.env.TOSS_API_URL;
-    
-    if (!tossApiUrl || isSimulation) {
-      // Direct Simulation Mode Response inside the secure proxy
-      return handleMockBrokerResponse(method, path, body, user.id);
+    if (!tossApiUrl) {
+      return NextResponse.json({ error: 'ConfigurationError: TOSS_API_URL environment variable is not configured.' }, { status: 500 });
+    }
+
+    if (isSimulation) {
+      return NextResponse.json({ error: 'NotImplementedError: Simulation mode is deactivated for production security.' }, { status: 501 });
     }
 
     // Forward signed request to Live Toss API
@@ -125,12 +127,15 @@ export async function POST(request: NextRequest) {
 
 // Master key derivation using SHA-256 to ensure exactly 32 bytes (256 bits)
 function getMasterKey(): Buffer {
-  const rawKey = process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY || 'default-dev-fallback-key-do-not-use-in-prod-12345';
+  const rawKey = process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY;
   const isLiveMode = process.env.NEXT_PUBLIC_TRADING_MODE === 'LIVE' || process.env.TRADING_MODE === 'LIVE';
-  if (!process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY && isLiveMode) {
+  
+  if ((!rawKey || rawKey.trim() === '') && isLiveMode) {
     throw new Error('ConfigurationError: TOSS_CREDENTIALS_ENCRYPTION_KEY is required in LIVE mode but not defined.');
   }
-  return crypto.createHash('sha256').update(rawKey).digest();
+  
+  const encryptionKey = rawKey || 'default-dev-fallback-key-do-not-use-in-prod-12345';
+  return crypto.createHash('sha256').update(encryptionKey).digest();
 }
 
 // Cryptographically encrypt a plaintext string using AES-256-GCM
@@ -176,63 +181,3 @@ export function decryptSecret(encrypted: string): string {
   return decrypted;
 }
 
-
-// Simulates broker responses within the secure proxy scope
-function handleMockBrokerResponse(method: string, path: string, body: any, userId: string) {
-  console.log(`[TossProxy Mock] Simulating ${method} ${path} for user ${userId}`);
-
-  if (path.startsWith('/v1/orders')) {
-    if (method === 'POST') {
-      const brokerOrderId = `TOSS-ORD-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      return NextResponse.json({
-        success: true,
-        broker_order_id: brokerOrderId,
-        status: 'ACCEPTED',
-        client_oid: body?.client_oid || ''
-      }, { status: 200 });
-    }
-    
-    if (method === 'DELETE') {
-      return NextResponse.json({
-        success: true,
-        message: 'Order cancelled successfully'
-      }, { status: 200 });
-    }
-
-    if (method === 'GET') {
-      const parts = path.split('/');
-      const clientOrderId = parts[parts.length - 1] || 'mock-id';
-      return NextResponse.json({
-        success: true,
-        broker_order_id: `BROKER-${clientOrderId}`,
-        symbol: 'AAPL',
-        side: '2', // Buy
-        type: '02', // Limit
-        qty: 10,
-        price: 150000,
-        status: 'FILLED',
-        filled_qty: 10,
-        avg_fill_price: 150000,
-        sequence_number: 1,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, { status: 200 });
-    }
-  }
-
-  if (path.startsWith('/v1/account/balance')) {
-    return NextResponse.json({
-      cash_balance: 10000000,
-      purchasing_power: 10000000
-    }, { status: 200 });
-  }
-
-  if (path.startsWith('/v1/account/positions')) {
-    return NextResponse.json([
-      { symbol: 'AAPL', qty: 10, avg_buy_price: 150000 },
-      { symbol: 'TSLA', qty: 5, avg_buy_price: 250000 }
-    ], { status: 200 });
-  }
-
-  return NextResponse.json({ error: 'Endpoint not found' }, { status: 404 });
-}

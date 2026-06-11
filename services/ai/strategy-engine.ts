@@ -76,25 +76,7 @@ export class StrategyEngine {
   }
 
   async getLatestSignals(limit?: number): Promise<AISignal[]> {
-    // Return a default dummy signal for visual testing
-    return [
-      {
-        id: 'sig-dummy-1',
-        symbol: '005930',
-        action: 'BUY',
-        confidenceScore: 0.85,
-        reasoning: {
-          textSummary: 'Samsung Electronics is showing a golden cross on the 5-day and 20-day moving averages with strong volume increase.',
-          indicatorsUsed: [
-            { name: '5-MA', value: '70,500', condition: 'Crossed above 20-MA' },
-            { name: 'RSI', value: '45.2', condition: 'Neutral, trending up' },
-            { name: 'Volume', value: '150%', condition: 'Above 10-day average' }
-          ],
-          marketSentiment: 'BULLISH'
-        },
-        createdAt: new Date().toISOString()
-      }
-    ];
+    return [];
   }
 
   async generateSignal(symbol: string): Promise<AISignal | null> {

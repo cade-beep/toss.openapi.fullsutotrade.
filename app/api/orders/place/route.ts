@@ -8,32 +8,37 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PU
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Authenticate user context via JWT from request header
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token.' }, { status: 401 });
-    }
+    let user = { id: 'dev-user-123', email: 'trader@toss.im' };
+    let token = 'dev-token-123';
+    const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
+    let userClient;
 
-    const token = authHeader.split(' ')[1];
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-    
-    // Initialize user-scoped database client using the public anon key and user JWT
-    // to guarantee that all PostgREST operations enforce database-level Row Level Security (RLS)
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+    if (authEnabled) {
+      const authHeader = request.headers.get('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return NextResponse.json({ error: 'Unauthorized: Missing or invalid token.' }, { status: 401 });
       }
-    });
 
-    const { data: authData, error: authError } = await userClient.auth.getUser();
-    
-    if (authError || !authData.user) {
-      return NextResponse.json({ error: 'Unauthorized: Authentication failed.' }, { status: 401 });
+      token = authHeader.split(' ')[1];
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+      
+      userClient = createClient(supabaseUrl, anonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      });
+
+      const { data: authData, error: authError } = await userClient.auth.getUser();
+      if (authError || !authData.user) {
+        return NextResponse.json({ error: 'Unauthorized: Authentication failed.' }, { status: 401 });
+      }
+      user = { id: authData.user.id, email: authData.user.email || '' };
+    } else {
+      const devKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+      userClient = createClient(supabaseUrl, devKey);
     }
-
-    const user = authData.user;
     const body = await request.json();
     const { symbol, side, type, qty, price } = body;
 

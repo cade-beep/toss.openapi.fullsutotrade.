@@ -18,7 +18,7 @@ export const getRedisConnectionOptions = (): ConnectionOptions => {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
     };
-  } catch (err) {
+  } catch {
     // Fallback to defaults
     return {
       host: '127.0.0.1',
@@ -35,7 +35,7 @@ let redisClient: Redis | null = null;
  */
 export const getRedisClient = (): Redis => {
   if (!redisClient) {
-    const opts = getRedisConnectionOptions() as any;
+    const opts = getRedisConnectionOptions() as { host?: string; port?: number; username?: string; password?: string };
     redisClient = new Redis({
       host: opts.host,
       port: opts.port,
@@ -60,7 +60,7 @@ export const closeRedisClient = async (): Promise<void> => {
   if (redisClient) {
     try {
       await redisClient.quit();
-    } catch (err) {
+    } catch {
       // Ignore cleanup error if already disconnected
     }
     redisClient = null;

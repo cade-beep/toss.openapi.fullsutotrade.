@@ -47,12 +47,27 @@ export const strategyWorker = new Worker(
       return;
     }
 
-    const symbol = strategyId === 'strategy-ma-crossover' ? 'AAPL' : 'TSLA';
+    const symbol = userStrat.params?.symbol;
+    if (!symbol) {
+      console.error(`[StrategyWorker] Strategy ${strategyId} configuration error: missing symbol parameter in strategy params.`);
+      return;
+    }
     
     // Generate AI Signal
     const signal = await strategyEngine.generateSignal(symbol);
     if (!signal || signal.action === 'HOLD') {
       console.log(`[StrategyWorker] No signal generated for ${symbol}. (HOLD)`);
+      return;
+    }
+
+    // Query current price dynamically from active broker/simulation service
+    const mode = (process.env.NEXT_PUBLIC_TRADING_MODE || 'PAPER') as 'SIMULATION' | 'PAPER' | 'LIVE';
+    const tradingService = TradingServiceFactory.getService(mode, supabase);
+    let currentPrice: number;
+    try {
+      currentPrice = await tradingService.getMarketPrice(symbol);
+    } catch (err: any) {
+      console.error(`[StrategyWorker] Failed to fetch current price for ${symbol} dynamically:`, err.message);
       return;
     }
 
@@ -64,7 +79,7 @@ export const strategyWorker = new Worker(
       side: signal.action as 'BUY' | 'SELL',
       type: 'LIMIT' as const,
       qty: 10,
-      price: 150000,
+      price: currentPrice,
       clientOrderId,
       isAI: true,
       aiConfidence: signal.confidenceScore

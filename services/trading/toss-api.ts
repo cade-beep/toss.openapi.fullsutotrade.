@@ -248,8 +248,17 @@ export class TossTradingService implements TradingService {
   }
 
   async getMarketPrice(symbol: string): Promise<number> {
-    // Simple fetch or mock price trigger
-    return 150000;
+    try {
+      const data = await this.callProxy('GET', `/v1/market/price?symbol=${symbol}`);
+      const price = Number(data.price);
+      if (!price || isNaN(price) || price <= 0) {
+        throw new Error(`Invalid price returned from broker: ${data.price}`);
+      }
+      return price;
+    } catch (err: any) {
+      console.error(`[TossTradingService] Failed to fetch live price for ${symbol}:`, err.message);
+      throw err;
+    }
   }
 
   async getOrder(clientOrderId: string): Promise<OrderV2 | null> {
@@ -270,10 +279,13 @@ export class TossTradingService implements TradingService {
       if (data.error && data.error.includes('not found')) {
         return null;
       }
+      if (!data.symbol) {
+        throw new Error(`Order symbol is missing in broker response for ${clientOrderId}`);
+      }
       return {
         client_order_id: clientOrderId,
         broker_order_id: data.broker_order_id || `BROKER-${clientOrderId}`,
-        symbol: data.symbol || 'AAPL',
+        symbol: data.symbol,
         side: data.side === '2' ? 'BUY' : 'SELL',
         type: data.type === '02' ? 'LIMIT' : 'MARKET',
         qty: Number(data.qty) || 0,

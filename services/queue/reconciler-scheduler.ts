@@ -161,11 +161,14 @@ export async function sweepInFlightOrders(supabase: SupabaseClient) {
         console.log(`[Reconciler] Enqueued live reconciliation event for order ${order.client_order_id} (Status: ${brokerOrder.status})`);
       } else {
         // In simulation/paper mode, simulate broker status lookup
-        console.log(`[Reconciler] Querying broker status for mock order ${order.client_order_id}...`);
-        
+        if (!order.price || order.price <= 0) {
+          console.error(`[Reconciler] Reconciliation failed for order ${order.client_order_id}: Missing or invalid order price.`);
+          continue;
+        }
+
         let eventType: 'FULL_FILL' | 'CANCEL' = 'FULL_FILL';
         let fillQty = order.qty;
-        let fillPrice = order.price || 150000;
+        let fillPrice = order.price;
 
         if (order.status === 'CANCELLING') {
           eventType = 'CANCEL';

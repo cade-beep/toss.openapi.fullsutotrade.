@@ -49,6 +49,7 @@ interface WorkstationState {
   toast: { message: string; type: 'success' | 'error' | 'info' } | null;
   isHydrated: boolean;
   user: { id: string; email: string } | null;
+  isApiConnected: boolean;
 }
 
 type WorkstationAction =
@@ -58,16 +59,15 @@ type WorkstationAction =
   | { type: 'TICK' }
   | { type: 'ADD_TICKER'; payload: { symbol: string; name: string; price: number } }
   | { type: 'REMOVE_TICKER'; payload: string }
-  | { type: 'EXECUTE_TRADE'; payload: { symbol: string; side: 'BUY' | 'SELL'; qty: number; price: number; isAISignal?: boolean } }
-  | { type: 'PANIC_SELL_ALL' }
-  | { type: 'SET_STRATEGIES'; payload: any }
+
+  | { type: 'SET_STRATEGIES'; payload: WorkstationState['strategies'] | ((prev: WorkstationState['strategies']) => WorkstationState['strategies']) }
   | { type: 'SHOW_TOAST'; payload: { message: string; type: 'success' | 'error' | 'info' } }
   | { type: 'CLEAR_TOAST' }
   | { type: 'SIGN_IN'; payload: { id: string; email: string } }
   | { type: 'SIGN_OUT' }
   | { type: 'SESSION_EXPIRE' }
   | { type: 'ADD_AI_SIGNAL'; payload: AISignalLog }
-  | { type: 'ADD_ORDER_LOG'; payload: any };
+  | { type: 'ADD_ORDER_LOG'; payload: { id: string; symbol: string; side: 'BUY' | 'SELL'; qty: number; price: number; time: string } };
 
 interface WorkstationContextType extends WorkstationState {
   setSelectedSymbol: (symbol: string) => void;
@@ -76,7 +76,7 @@ interface WorkstationContextType extends WorkstationState {
     rsi: { active: boolean; overbought: number; oversold: number };
   }>>;
   activeTicker: WorkstationTicker;
-  executeMockTrade: (symbol: string, side: 'BUY' | 'SELL', qty: number, price: number, isAISignal?: boolean) => void;
+  executeTrade: (symbol: string, side: 'BUY' | 'SELL', qty: number, price: number, isAISignal?: boolean) => void;
   handlePanicSellAll: () => void;
   handleAddTicker: (symbol: string, name: string) => void;
   handleRemoveTicker: (symbol: string) => void;
@@ -84,38 +84,26 @@ interface WorkstationContextType extends WorkstationState {
   handleSignIn: (id: string, email: string) => void;
   handleSignOut: () => void;
   handleSessionExpire: () => void;
+  reloadUserData: () => Promise<void>;
 }
 
 const WorkstationContext = createContext<WorkstationContextType | undefined>(undefined);
 
 const defaultState: WorkstationState = {
-  selectedSymbol: '005930',
-  tickers: [
-    { symbol: '005930', name: '삼성전자', price: 70200, change: 1.25, high: 71000, low: 69500, history: [69500, 69800, 70100, 69900, 70200, 70500, 70200] },
-    { symbol: '000660', name: 'SK하이닉스', price: 151200, change: -0.45, high: 153000, low: 149500, history: [152000, 153000, 151000, 150500, 152000, 151200, 151200] },
-    { symbol: '035420', name: 'NAVER', price: 181500, change: 2.10, high: 183000, low: 178000, history: [178000, 179000, 180500, 180000, 182000, 181000, 181500] },
-    { symbol: '005380', name: '현대차', price: 235500, change: 0.00, high: 237000, low: 234000, history: [236000, 235000, 234500, 235000, 236000, 235500, 235500] },
-    { symbol: '068270', name: '셀트리온', price: 178400, change: -1.85, high: 182000, low: 177000, history: [181000, 182000, 180000, 179000, 178500, 178000, 178400] },
-  ],
-  cashBalance: 10000000, // 10,000,000 KRW
-  positions: [
-    { id: 'mock-pos-1', symbol: '005930', qty: 50, avgBuyPrice: 68900, currentPrice: 70200 },
-    { id: 'mock-pos-2', symbol: '035420', qty: 15, avgBuyPrice: 179500, currentPrice: 181500 },
-  ],
-  ordersLog: [
-    { id: 'ORD-9832', symbol: '005930', side: 'BUY', type: 'MARKET', qty: 50, price: 68900, status: 'FILLED', time: '10:15:30' },
-    { id: 'ORD-9811', symbol: '035420', side: 'BUY', type: 'LIMIT', qty: 15, price: 179500, status: 'FILLED', time: '09:42:15' },
-  ],
-  aiSignals: [
-    { id: 'SIG-2101', symbol: '005930', action: 'BUY', confidence: 0.88, reasoning: '5-MA crossed above 20-MA. RSI index shows oversold momentum recovery at 35.4.', time: '10:15:02' },
-  ],
+  selectedSymbol: '',
+  tickers: [],
+  cashBalance: 0,
+  positions: [],
+  ordersLog: [],
+  aiSignals: [],
   strategies: {
     ma: { active: false, fast: 5, slow: 20 },
     rsi: { active: false, overbought: 70, oversold: 30 },
   },
   toast: null,
   isHydrated: false,
-  user: process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' ? null : { id: 'mock-user-123', email: 'trader@toss.im' }, // Configurable developer mock user
+  user: process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' ? null : { id: 'dev-user-123', email: 'trader@toss.im' },
+  isApiConnected: false,
 };
 
 // --- DATA SCHEMA VALIDATION HELPERS ---
@@ -128,9 +116,11 @@ function validatePositions(value: string): Position[] | null {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return null;
-    const validated = parsed.filter((pos: any) => {
+    const validated = parsed.filter((item: unknown) => {
+      const pos = item as Record<string, unknown>;
       return (
         pos &&
+        typeof pos === 'object' &&
         typeof pos.id === 'string' &&
         typeof pos.symbol === 'string' &&
         typeof pos.qty === 'number' && pos.qty >= 0 &&
@@ -138,7 +128,7 @@ function validatePositions(value: string): Position[] | null {
         typeof pos.currentPrice === 'number' && pos.currentPrice >= 0
       );
     });
-    return validated.length === parsed.length ? validated : null;
+    return validated.length === parsed.length ? (validated as Position[]) : null;
   } catch {
     return null;
   }
@@ -148,9 +138,11 @@ function validateTickers(value: string): WorkstationTicker[] | null {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return null;
-    const validated = parsed.filter((ticker: any) => {
+    const validated = parsed.filter((item: unknown) => {
+      const ticker = item as Record<string, unknown>;
       return (
         ticker &&
+        typeof ticker === 'object' &&
         typeof ticker.symbol === 'string' &&
         typeof ticker.name === 'string' &&
         typeof ticker.price === 'number' &&
@@ -158,10 +150,10 @@ function validateTickers(value: string): WorkstationTicker[] | null {
         typeof ticker.high === 'number' &&
         typeof ticker.low === 'number' &&
         Array.isArray(ticker.history) &&
-        ticker.history.every((h: any) => typeof h === 'number')
+        (ticker.history as unknown[]).every((h: unknown) => typeof h === 'number')
       );
     });
-    return validated.length === parsed.length ? validated : null;
+    return validated.length === parsed.length ? (validated as WorkstationTicker[]) : null;
   } catch {
     return null;
   }
@@ -189,9 +181,11 @@ function validateOrdersLog(value: string): OrderLog[] | null {
   try {
     const parsed = JSON.parse(value);
     if (!Array.isArray(parsed)) return null;
-    const validated = parsed.filter((order: any) => {
+    const validated = parsed.filter((item: unknown) => {
+      const order = item as Record<string, unknown>;
       return (
         order &&
+        typeof order === 'object' &&
         typeof order.id === 'string' &&
         typeof order.symbol === 'string' &&
         (order.side === 'BUY' || order.side === 'SELL') &&
@@ -202,7 +196,7 @@ function validateOrdersLog(value: string): OrderLog[] | null {
         typeof order.time === 'string'
       );
     });
-    return validated.length === parsed.length ? validated : null;
+    return validated.length === parsed.length ? (validated as OrderLog[]) : null;
   } catch {
     return null;
   }
@@ -243,14 +237,18 @@ function workstationReducer(state: WorkstationState, action: WorkstationAction):
       };
 
     case 'TICK': {
+      if (!state.isApiConnected) {
+        return state;
+      }
       const nextTickers = state.tickers.map((ticker) => {
         const drift = (Math.random() - 0.5) * 0.006;
-        const newPrice = Math.round(ticker.price * (1 + drift));
-        const basePrice = ticker.history[0];
+        const currentPrice = ticker.price || 50000;
+        const newPrice = Math.round(currentPrice * (1 + drift));
+        const basePrice = ticker.history[0] || newPrice;
         const newChange = Number(((newPrice - basePrice) / basePrice * 100).toFixed(2));
-        const newHigh = Math.max(ticker.high, newPrice);
-        const newLow = Math.min(ticker.low, newPrice);
-        const newHistory = [...ticker.history.slice(1), newPrice];
+        const newHigh = Math.max(ticker.high || newPrice, newPrice);
+        const newLow = Math.min(ticker.low || newPrice, newPrice);
+        const newHistory = ticker.history.length > 0 ? [...ticker.history.slice(1), newPrice] : Array(7).fill(newPrice);
 
         return {
           ...ticker,
@@ -314,155 +312,7 @@ function workstationReducer(state: WorkstationState, action: WorkstationAction):
       };
     }
 
-    case 'EXECUTE_TRADE': {
-      const { symbol, side, qty, price, isAISignal = false } = action.payload;
-      
-      // Safety Check: Prevent execution when no authenticated user session exists
-      if (!state.user) {
-        return {
-          ...state,
-          toast: isAISignal ? state.toast : { message: '주문 실패: 로그인이 필요합니다.', type: 'error' },
-        };
-      }
 
-      const ticker = state.tickers.find((t) => t.symbol === symbol);
-      if (!ticker) return state;
-
-      const totalCost = qty * price;
-
-      if (side === 'BUY') {
-        if (state.cashBalance < totalCost) {
-          return {
-            ...state,
-            toast: isAISignal ? state.toast : { message: '주문 실패: 예수금이 부족합니다.', type: 'error' },
-          };
-        }
-
-        let nextPositions = [...state.positions];
-        const existingIdx = nextPositions.findIndex((p) => p.symbol === symbol);
-        if (existingIdx !== -1) {
-          const existing = nextPositions[existingIdx];
-          const totalQty = existing.qty + qty;
-          const avgPrice = Math.round((existing.qty * existing.avgBuyPrice + totalCost) / totalQty);
-          nextPositions[existingIdx] = {
-            ...existing,
-            qty: totalQty,
-            avgBuyPrice: avgPrice,
-          };
-        } else {
-          nextPositions.push({
-            id: `pos-${Math.random().toString(36).substring(2, 9)}`,
-            symbol,
-            qty,
-            avgBuyPrice: price,
-            currentPrice: price,
-          });
-        }
-
-        const newOrder: OrderLog = {
-          id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-          symbol,
-          side,
-          type: 'MARKET',
-          qty,
-          price,
-          status: 'FILLED',
-          time: new Date().toTimeString().split(' ')[0],
-        };
-
-        return {
-          ...state,
-          cashBalance: state.cashBalance - totalCost,
-          positions: nextPositions,
-          ordersLog: [newOrder, ...state.ordersLog],
-          toast: {
-            message: `${ticker.name} ${qty}주 매수 주문 체결 완료 (${isAISignal ? 'AI 자동' : '수동'})`,
-            type: 'success',
-          },
-        };
-      } else {
-        // SELL
-        const existingIdx = state.positions.findIndex((p) => p.symbol === symbol);
-        if (existingIdx === -1 || state.positions[existingIdx].qty < qty) {
-          return {
-            ...state,
-            toast: isAISignal ? state.toast : { message: '주문 실패: 매도할 보유 수량이 부족합니다.', type: 'error' },
-          };
-        }
-
-        const existing = state.positions[existingIdx];
-        const nextPositions = state.positions
-          .map((p, idx) => (idx === existingIdx ? { ...p, qty: p.qty - qty } : p))
-          .filter((p) => p.qty > 0);
-
-        const newOrder: OrderLog = {
-          id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-          symbol,
-          side,
-          type: 'MARKET',
-          qty,
-          price,
-          status: 'FILLED',
-          time: new Date().toTimeString().split(' ')[0],
-        };
-
-        return {
-          ...state,
-          cashBalance: state.cashBalance + totalCost,
-          positions: nextPositions,
-          ordersLog: [newOrder, ...state.ordersLog],
-          toast: {
-            message: `${ticker.name} ${qty}주 매도 주문 체결 완료 (${isAISignal ? 'AI 자동' : '수동'})`,
-            type: 'success',
-          },
-        };
-      }
-    }
-
-    case 'PANIC_SELL_ALL': {
-      // Safety Check: Prevent execution when no authenticated user session exists
-      if (!state.user) {
-        return {
-          ...state,
-          toast: { message: '긴급 주문 실패: 로그인이 필요합니다.', type: 'error' },
-        };
-      }
-
-      if (state.positions.length === 0) {
-        return {
-          ...state,
-          toast: { message: '매도할 보유 포지션이 없습니다.', type: 'info' },
-        };
-      }
-
-      let proceeds = 0;
-      const closedOrders: OrderLog[] = [];
-
-      state.positions.forEach((pos) => {
-        const ticker = state.tickers.find((t) => t.symbol === pos.symbol);
-        const currentPrice = ticker ? ticker.price : pos.avgBuyPrice;
-        proceeds += pos.qty * currentPrice;
-
-        closedOrders.push({
-          id: `PANIC-${Math.floor(1000 + Math.random() * 9000)}`,
-          symbol: pos.symbol,
-          side: 'SELL',
-          type: 'MARKET',
-          qty: pos.qty,
-          price: currentPrice,
-          status: 'FILLED',
-          time: new Date().toTimeString().split(' ')[0],
-        });
-      });
-
-      return {
-        ...state,
-        cashBalance: state.cashBalance + proceeds,
-        positions: [],
-        ordersLog: [...closedOrders, ...state.ordersLog],
-        toast: { message: '긴급 조치: 모든 보유 포지션 전량 청산 완료', type: 'success' },
-      };
-    }
 
     case 'SET_STRATEGIES': {
       const nextStrategies = typeof action.payload === 'function' ? action.payload(state.strategies) : action.payload;
@@ -543,15 +393,25 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
   const [state, dispatch] = useReducer(workstationReducer, defaultState);
 
   const tickersRef = React.useRef(state.tickers);
-  tickersRef.current = state.tickers;
+  useEffect(() => {
+    tickersRef.current = state.tickers;
+  }, [state.tickers]);
 
-  const activeTicker = state.tickers.find((t) => t.symbol === state.selectedSymbol) || state.tickers[0];
+  const activeTicker = state.tickers.find((t) => t.symbol === state.selectedSymbol) || state.tickers[0] || {
+    symbol: '',
+    name: '선택된 종목 없음',
+    price: 0,
+    change: 0,
+    high: 0,
+    low: 0,
+    history: []
+  };
 
   const setSelectedSymbol = useCallback((symbol: string) => {
     dispatch({ type: 'SELECT_SYMBOL', payload: symbol });
   }, []);
 
-  const setStrategies = useCallback((payload: any) => {
+  const setStrategies = useCallback((payload: React.SetStateAction<WorkstationState['strategies']>) => {
     dispatch({ type: 'SET_STRATEGIES', payload });
   }, []);
 
@@ -628,50 +488,86 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
 
   // --- DATABASE HYDRATION FUNCTION ---
   const loadUserData = useCallback(async () => {
-    if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true' || !supabase || !state.user) {
+    if (!supabase || !state.user) {
       return;
     }
     try {
       const userId = state.user.id;
-      
-      // 1. Fetch or Initialize Portfolio
-      let cash = 10000000;
-      const { data: portfolioData, error: portfolioErr } = await supabase
-        .from('portfolio')
-        .select('cash_balance')
+
+      // 0. Check API Credentials configuration
+      const { data: creds, error: credsErr } = await supabase
+        .from('api_credentials')
+        .select('user_id')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (portfolioErr) {
-        console.error('Error fetching user portfolio from database:', portfolioErr);
-      } else if (!portfolioData) {
-        const { error: insertErr } = await supabase
+      const hasCreds = !!creds && !credsErr;
+
+      // 1. Fetch or Initialize Portfolio
+      let cash = 0;
+      if (hasCreds) {
+        const { data: portfolioData, error: portfolioErr } = await supabase
           .from('portfolio')
-          .insert({ user_id: userId, cash_balance: 10000000 });
-        if (insertErr) console.error('Error initializing user portfolio:', insertErr);
-      } else {
-        cash = Number(portfolioData.cash_balance);
+          .select('cash_balance')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (portfolioErr) {
+          console.error('Error fetching user portfolio from database:', portfolioErr);
+        } else if (!portfolioData) {
+          let initialBalance = 0;
+          try {
+            const token = 'dev-token-123';
+            const { data: { session } } = await supabase.auth.getSession();
+            const bearer = session?.access_token || token;
+            
+            const response = await fetch('/api/toss-proxy', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${bearer}`
+              },
+              body: JSON.stringify({ method: 'GET', path: '/v1/account/balance' })
+            });
+            const data = await response.json();
+            if (response.ok && data && !data.error) {
+              initialBalance = Number(data.cash_balance) || 0;
+            }
+          } catch (fetchErr) {
+            console.error('Failed to fetch actual broker account balance for initialization:', fetchErr);
+          }
+
+          const { error: insertErr } = await supabase
+            .from('portfolio')
+            .insert({ user_id: userId, cash_balance: initialBalance });
+          if (insertErr) console.error('Error initializing user portfolio:', insertErr);
+          cash = initialBalance;
+        } else {
+          cash = Number(portfolioData.cash_balance);
+        }
       }
 
       // 2. Fetch Active positions
-      const { data: positionsData, error: positionsErr } = await supabase
-        .from('positions')
-        .select('id, symbol, qty, avg_buy_price')
-        .eq('user_id', userId);
-
       let positionsList: Position[] = [];
-      if (positionsErr) {
-        console.error('Error fetching user positions from database:', positionsErr);
-      } else if (positionsData) {
-        positionsList = positionsData.map((p) => {
-          return {
-            id: p.id,
-            symbol: p.symbol,
-            qty: p.qty,
-            avgBuyPrice: p.avg_buy_price,
-            currentPrice: p.avg_buy_price, // fallback, UI dynamically retrieves live current price
-          };
-        });
+      if (hasCreds) {
+        const { data: positionsData, error: positionsErr } = await supabase
+          .from('positions')
+          .select('id, symbol, qty, avg_buy_price')
+          .eq('user_id', userId);
+
+        if (positionsErr) {
+          console.error('Error fetching user positions from database:', positionsErr);
+        } else if (positionsData) {
+          positionsList = positionsData.map((p) => {
+            return {
+              id: p.id,
+              symbol: p.symbol,
+              qty: p.qty,
+              avgBuyPrice: p.avg_buy_price,
+              currentPrice: p.avg_buy_price, // fallback
+            };
+          });
+        }
       }
 
       // 3. Fetch or Initialize Watchlist
@@ -685,30 +581,19 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         console.error('Error fetching user watchlist from database:', watchlistErr);
         nextTickers = tickersRef.current;
       } else if (!watchlistData || watchlistData.length === 0) {
-        // Initialize user watchlist in database with default tickers
-        const defaultWatchlist = defaultState.tickers.map((t) => ({
-          user_id: userId,
-          symbol: t.symbol,
-          name: t.name,
-        }));
-        const { error: insertErr } = await supabase
-          .from('watchlist')
-          .insert(defaultWatchlist);
-        if (insertErr) {
-          console.error('Error initializing user watchlist in database:', insertErr);
-          nextTickers = tickersRef.current;
-        } else {
-          nextTickers = defaultState.tickers;
-        }
+        // Enforce fail-closed watchlist (do not initialize default tickers)
+        nextTickers = [];
       } else {
         // Build new tickers list based on database watchlist
         nextTickers = watchlistData.map((w) => {
           const existing = tickersRef.current.find((t) => t.symbol === w.symbol);
           if (existing) {
+            if (!hasCreds) {
+              return { ...existing, price: 0, change: 0, high: 0, low: 0, history: [] };
+            }
             return existing;
           }
-          // If not in current state, initialize with randomized price
-          const price = Math.round(50000 + Math.random() * 200000);
+          const price = hasCreds ? Math.round(50000 + Math.random() * 200000) : 0;
           return {
             symbol: w.symbol,
             name: w.name,
@@ -716,38 +601,40 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
             change: 0.0,
             high: price,
             low: price,
-            history: Array(7).fill(price),
+            history: price > 0 ? Array(7).fill(price) : [],
           };
         });
       }
 
       // 4. Fetch recent orders log from Supabase
-      const { data: ordersData, error: ordersErr } = await supabase
-        .from('orders_log')
-        .select('id, symbol, side, type, qty, price, status, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
       let ordersList: OrderLog[] = [];
-      if (ordersErr) {
-        console.error('Error fetching user orders from database:', ordersErr);
-      } else if (ordersData) {
-        ordersList = ordersData.map((o) => {
-          const time = o.created_at
-            ? new Date(o.created_at).toTimeString().split(' ')[0]
-            : new Date().toTimeString().split(' ')[0];
-          return {
-            id: o.id,
-            symbol: o.symbol,
-            side: o.side as 'BUY' | 'SELL',
-            type: o.type as 'MARKET' | 'LIMIT',
-            qty: o.qty,
-            price: o.price,
-            status: o.status as 'PENDING' | 'FILLED' | 'REJECTED' | 'CANCELLED',
-            time,
-          };
-        });
+      if (hasCreds) {
+        const { data: ordersData, error: ordersErr } = await supabase
+          .from('orders_log')
+          .select('id, symbol, side, type, qty, price, status, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (ordersErr) {
+          console.error('Error fetching user orders from database:', ordersErr);
+        } else if (ordersData) {
+          ordersList = ordersData.map((o) => {
+            const time = o.created_at
+              ? new Date(o.created_at).toTimeString().split(' ')[0]
+              : new Date().toTimeString().split(' ')[0];
+            return {
+              id: o.id,
+              symbol: o.symbol,
+              side: o.side as 'BUY' | 'SELL',
+              type: o.type as 'MARKET' | 'LIMIT',
+              qty: o.qty,
+              price: o.price,
+              status: o.status as 'PENDING' | 'FILLED' | 'REJECTED' | 'CANCELLED',
+              time,
+            };
+          });
+        }
       }
 
       dispatch({
@@ -757,10 +644,20 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
           positions: positionsList,
           tickers: nextTickers,
           ordersLog: ordersList,
+          isApiConnected: hasCreds,
         },
       });
     } catch (err) {
       console.error('Failed to execute Supabase database load:', err);
+      dispatch({
+        type: 'HYDRATE',
+        payload: {
+          isApiConnected: false,
+          cashBalance: 0,
+          positions: [],
+          ordersLog: [],
+        },
+      });
     }
   }, [state.user]);
 
@@ -770,136 +667,120 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
   }, [state.user, loadUserData]);
 
   // --- ATOMIC TRANSACTION EXECUTION METHOD ---
-  // --- ATOMIC TRANSACTION EXECUTION METHOD ---
-  const executeMockTrade = useCallback(async (
+  const executeTrade = useCallback(async (
     symbol: string,
     side: 'BUY' | 'SELL',
     qty: number,
     price: number,
     isAISignal: boolean = false
   ) => {
-    if (process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' && supabase && state.user) {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token || '';
+    if (!state.isApiConnected) {
+      if (!isAISignal) {
+        showToast('주문 실패: API가 연결되지 않았습니다.', 'error');
+      }
+      return;
+    }
 
+    try {
+      let token = 'dev-token-123';
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          token = session.access_token;
+        }
+      }
+
+      const response = await fetch('/api/orders/place', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ symbol, side, type: 'LIMIT', qty, price })
+      });
+
+      const resData = await response.json();
+
+      if (!response.ok || resData.error) {
+        const errMsg = resData.error || '주문 요청 실패';
+        console.error('API order placement error:', errMsg);
+        if (!isAISignal) {
+          showToast(`주문 실패: ${errMsg}`, 'error');
+        }
+      } else {
+        const ticker = state.tickers.find((t) => t.symbol === symbol);
+        const name = ticker ? ticker.name : symbol;
+        
+        const statusText = resData.order?.status === 'PENDING' ? '접수 완료 (대기)' : '체결 완료';
+        showToast(`${name} ${qty}주 ${side === 'BUY' ? '매수' : '매도'} 주문 ${statusText} (${isAISignal ? 'AI 자동' : '수동'})`, 'success');
+        
+        // Trigger dynamic state re-fetch to sync ledger balance and positions
+        await loadUserData();
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error('Order placement fetch failed:', err);
+      if (!isAISignal) {
+        showToast(`주문 실패: ${errorMsg || '네트워크 오류'}`, 'error');
+      }
+    }
+  }, [state.tickers, state.isApiConnected, loadUserData, showToast]);
+
+  const handlePanicSellAll = useCallback(async () => {
+    if (state.positions.length === 0) {
+      showToast('매도할 보유 포지션이 없습니다.', 'info');
+      return;
+    }
+
+    let successCount = 0;
+    let token = 'dev-token-123';
+    if (supabase) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        token = session.access_token;
+      }
+    }
+
+    // Sell holdings sequentially to avoid parallel lock contentions on the portfolio row
+    for (const pos of state.positions) {
+      const ticker = state.tickers.find((t) => t.symbol === pos.symbol);
+      const currentPrice = ticker ? ticker.price : pos.avgBuyPrice;
+
+      try {
         const response = await fetch('/api/orders/place', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ symbol, side, type: 'LIMIT', qty, price })
+          body: JSON.stringify({
+            symbol: pos.symbol,
+            side: 'SELL',
+            type: 'LIMIT',
+            qty: pos.qty,
+            price: currentPrice
+          })
         });
 
         const resData = await response.json();
 
         if (!response.ok || resData.error) {
-          const errMsg = resData.error || '주문 요청 실패';
-          console.error('API order placement error:', errMsg);
-          if (!isAISignal) {
-            showToast(`주문 실패: ${errMsg}`, 'error');
-          }
+          console.error(`Panic sell failed for ${pos.symbol}:`, resData.error);
         } else {
-          const ticker = state.tickers.find((t) => t.symbol === symbol);
-          const name = ticker ? ticker.name : symbol;
-          
-          const statusText = resData.order?.status === 'PENDING' ? '접수 완료 (대기)' : '체결 완료';
-          showToast(`${name} ${qty}주 ${side === 'BUY' ? '매수' : '매도'} 주문 ${statusText} (${isAISignal ? 'AI 자동' : '수동'})`, 'success');
-          
-          // Log transaction locally to update executions ledger
-          dispatch({
-            type: 'ADD_ORDER_LOG',
-            payload: {
-              id: resData.order?.id || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
-              symbol,
-              side,
-              qty,
-              price,
-              time: new Date().toTimeString().split(' ')[0],
-            },
-          });
-
-          // Trigger dynamic state re-fetch to sync ledger balance and positions
-          await loadUserData();
+          successCount++;
         }
-      } catch (err: any) {
-        console.error('Order placement fetch failed:', err);
-        if (!isAISignal) {
-          showToast(`주문 실패: ${err.message || '네트워크 오류'}`, 'error');
-        }
+      } catch (err) {
+        console.error(`Panic sell network error for ${pos.symbol}:`, err);
       }
-    } else {
-      // Local Sandbox mock execution
-      dispatch({ type: 'EXECUTE_TRADE', payload: { symbol, side, qty, price, isAISignal } });
     }
-  }, [state.user, state.tickers, loadUserData, showToast]);
 
-  const handlePanicSellAll = useCallback(async () => {
-    if (process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' && supabase && state.user) {
-      if (state.positions.length === 0) {
-        showToast('매도할 보유 포지션이 없습니다.', 'info');
-        return;
-      }
-
-      let successCount = 0;
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
-
-      // Sell holdings sequentially to avoid parallel lock contentions on the portfolio row
-      for (const pos of state.positions) {
-        const ticker = state.tickers.find((t) => t.symbol === pos.symbol);
-        const currentPrice = ticker ? ticker.price : pos.avgBuyPrice;
-
-        try {
-          const response = await fetch('/api/orders/place', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              symbol: pos.symbol,
-              side: 'SELL',
-              type: 'LIMIT',
-              qty: pos.qty,
-              price: currentPrice
-            })
-          });
-
-          const resData = await response.json();
-
-          if (!response.ok || resData.error) {
-            console.error(`Panic sell failed for ${pos.symbol}:`, resData.error);
-          } else {
-            successCount++;
-            dispatch({
-              type: 'ADD_ORDER_LOG',
-              payload: {
-                id: resData.order?.id || `PANIC-${Math.floor(1000 + Math.random() * 9000)}`,
-                symbol: pos.symbol,
-                side: 'SELL',
-                qty: pos.qty,
-                price: currentPrice,
-                time: new Date().toTimeString().split(' ')[0],
-              },
-            });
-          }
-        } catch (err: any) {
-          console.error(`Panic sell network error for ${pos.symbol}:`, err);
-        }
-      }
-
-      if (successCount > 0) {
-        await loadUserData();
-        showToast(`전체 포지션 일괄 매도 요청 완료 (${successCount}개 포지션)`, 'success');
-      } else {
-        showToast('긴급 청산 실패: 데이터베이스 오류 또는 네트워크 장애가 발생했습니다.', 'error');
-      }
+    if (successCount > 0) {
+      await loadUserData();
+      showToast(`전체 포지션 일괄 매도 요청 완료 (${successCount}개 포지션)`, 'success');
     } else {
-      dispatch({ type: 'PANIC_SELL_ALL' });
+      showToast('긴급 청산 실패: 데이터베이스 오류 또는 네트워크 장애가 발생했습니다.', 'error');
     }
-  }, [state.positions, state.tickers, state.user, loadUserData, showToast]);
+  }, [state.positions, state.tickers, loadUserData, showToast]);
 
   const handleSignOut = useCallback(async () => {
     if (process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' && supabase) {
@@ -1024,58 +905,7 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
     return () => clearInterval(interval);
   }, []);
 
-  // --- AI STRATEGY ENGINE SIMULATOR ---
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!state.user) return;
-      if (!state.strategies.ma.active && !state.strategies.rsi.active) return;
 
-      const randomTicker = state.tickers[Math.floor(Math.random() * state.tickers.length)];
-      const probability = Math.random();
-
-      if (probability > 0.65) {
-        const action: 'BUY' | 'SELL' = Math.random() > 0.5 ? 'BUY' : 'SELL';
-        const qty = 10;
-        const price = randomTicker.price;
-        const totalCost = qty * price;
-
-        // AI Safety Guardrails
-        if (action === 'BUY') {
-          if (state.cashBalance < totalCost) return;
-          const existingPos = state.positions.find((p) => p.symbol === randomTicker.symbol);
-          if (existingPos && existingPos.qty + qty > 500) return;
-        } else {
-          const existingPos = state.positions.find((p) => p.symbol === randomTicker.symbol);
-          if (!existingPos || existingPos.qty < qty) return;
-        }
-
-        const confidence = Number((0.6 + Math.random() * 0.38).toFixed(2));
-        
-        let reason = '';
-        if (state.strategies.ma.active && Math.random() > 0.5) {
-          reason = `[MA Crossover] 5-period average crossed ${action === 'BUY' ? 'above' : 'below'} 20-period average on ${randomTicker.name}. Volume expansion is 1.4x.`;
-        } else if (state.strategies.rsi.active) {
-          reason = `[RSI Mean Reversion] RSI index crossed ${action === 'BUY' ? 'below 30 (Oversold)' : 'above 70 (Overbought)'} on ${randomTicker.name}. Counter-trend reversal expected.`;
-        } else {
-          reason = `[Combined Signal] Machine learning trend matching module predicts short-term ${action === 'BUY' ? 'bullish breakout' : 'bearish pullback'} on ${randomTicker.name}.`;
-        }
-
-        const newSignal: AISignalLog = {
-          id: `SIG-${Math.floor(1000 + Math.random() * 9000)}`,
-          symbol: randomTicker.symbol,
-          action,
-          confidence,
-          reasoning: reason,
-          time: new Date().toTimeString().split(' ')[0],
-        };
-
-        dispatch({ type: 'ADD_AI_SIGNAL', payload: newSignal });
-        executeMockTrade(randomTicker.symbol, action, qty, price, true);
-      }
-    }, 9000);
-
-    return () => clearInterval(interval);
-  }, [state.user, state.strategies, state.tickers, state.positions, state.cashBalance, executeMockTrade]);
 
   return (
     <WorkstationContext.Provider
@@ -1084,7 +914,7 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         setSelectedSymbol,
         setStrategies,
         activeTicker,
-        executeMockTrade,
+        executeTrade: executeTrade,
         handlePanicSellAll,
         handleAddTicker,
         handleRemoveTicker,
@@ -1092,6 +922,7 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         handleSignIn,
         handleSignOut,
         handleSessionExpire,
+        reloadUserData: loadUserData,
       }}
     >
       {children}

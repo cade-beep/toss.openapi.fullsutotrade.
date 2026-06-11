@@ -31,4 +31,9 @@ export interface TradingService {
    * Query the broker exchange directly for the current status of an order.
    */
   fetchOrderFromBroker(clientOrderId: string): Promise<OrderV2 | null>;
+
+  /**
+   * Retrieve the current market price of the specified stock symbol.
+   */
+  getMarketPrice(symbol: string): Promise<number>;
 }

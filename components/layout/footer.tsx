@@ -5,7 +5,7 @@ import { useWorkstation } from '@/lib/context/workstation-context';
 
 
 export default function Footer() {
-  const { ordersLog, positions, cashBalance, tickers, strategies } = useWorkstation();
+  const { ordersLog, positions, cashBalance, tickers, strategies, isApiConnected } = useWorkstation();
 
   // Compute portfolio risk exposure
   const portfolioAssetsValue = positions.reduce((total, pos) => {
@@ -28,7 +28,12 @@ export default function Footer() {
           Order Executions Ledger
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {ordersLog.length === 0 ? (
+          {!isApiConnected ? (
+            <div className="text-rose-500/80 text-[10px] text-center py-4 flex flex-col items-center justify-center gap-1 font-semibold uppercase tracking-wider">
+              <span>API Not Connected</span>
+              <span className="text-zinc-700 text-[9px] font-normal lowercase font-sans">Configure Toss credentials to view order logs</span>
+            </div>
+          ) : ordersLog.length === 0 ? (
             <div className="text-zinc-700 text-[10px] text-center py-4">No order history logged.</div>
           ) : (
             ordersLog.map((log) => {
@@ -61,35 +66,58 @@ export default function Footer() {
           System Activity & Safety Logs
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5 text-zinc-500 text-[9.5px] leading-normal">
-          <div className="flex gap-2">
-            <span className="text-zinc-700">[09:00:00]</span>
-            <span className="text-zinc-500">시스템 부팅 완료. 모의 투자 데이터베이스 캐싱 초기화.</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-zinc-700">[09:00:05]</span>
-            <span className="text-zinc-500">MockTossService 가격 피드 브로드캐스터 시작.</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-zinc-700">[09:05:12]</span>
-            <span className="text-[#f43f5e]/80">세이프티 가드레일 활성화 (Max Drawdown: -10% 포트폴리오 감시).</span>
-          </div>
-          {strategies.ma.active && (
-            <div className="flex gap-2 text-[#00d287]/90">
-              <span className="text-zinc-700">[{new Date().toTimeString().split(' ')[0]}]</span>
-              <span>MA Crossover 자동매매 인스턴스가 활성화되었습니다. 시장 감시 루프 실행 중.</span>
-            </div>
-          )}
-          {strategies.rsi.active && (
-            <div className="flex gap-2 text-[#00d287]/90">
-              <span className="text-zinc-700">[{new Date().toTimeString().split(' ')[0]}]</span>
-              <span>RSI Mean Reversion 자동매매 인스턴스가 활성화되었습니다. 시장 감시 루프 실행 중.</span>
-            </div>
-          )}
-          {positions.length > 0 && (
-            <div className="flex gap-2 text-zinc-400">
-              <span className="text-zinc-700">[{new Date().toTimeString().split(' ')[0]}]</span>
-              <span>보유 자산 실시간 위험도(Risk Exposure): {exposurePct}%</span>
-            </div>
+          {!isApiConnected ? (
+            <>
+              <div className="flex gap-2 text-zinc-600">
+                <span>[09:00:00]</span>
+                <span>SYSTEM: Workstation initializing...</span>
+              </div>
+              <div className="flex gap-2 text-rose-500 font-semibold animate-pulse">
+                <span>[09:00:05]</span>
+                <span>WARNING: Broker API credentials not configured. Workstation locked.</span>
+              </div>
+              <div className="flex gap-2 text-rose-500/80">
+                <span>[09:00:10]</span>
+                <span>CRITICAL: Live trading and order execution disabled. Fail-closed mode active.</span>
+              </div>
+              <div className="flex gap-2 text-zinc-600">
+                <span>[09:00:15]</span>
+                <span>Please configure Toss API credentials in Supabase to authorize trading.</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <span className="text-zinc-700">[09:00:00]</span>
+                <span className="text-zinc-500">시스템 부팅 완료. API 연결 검증 통과.</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="text-zinc-700">[09:00:05]</span>
+                <span className="text-zinc-500">Toss API 실시간 가격 피드 브로드캐스터 시작.</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="text-zinc-700">[09:05:12]</span>
+                <span className="text-[#f43f5e]/80">세이프티 가드레일 활성화 (Max Drawdown: -10% 포트폴리오 감시).</span>
+              </div>
+              {strategies.ma.active && (
+                <div className="flex gap-2 text-[#00d287]/90">
+                  <span className="text-zinc-700">[{new Date().toTimeString().split(' ')[0]}]</span>
+                  <span>MA Crossover 자동매매 인스턴스가 활성화되었습니다. 시장 감시 루프 실행 중.</span>
+                </div>
+              )}
+              {strategies.rsi.active && (
+                <div className="flex gap-2 text-[#00d287]/90">
+                  <span className="text-zinc-700">[{new Date().toTimeString().split(' ')[0]}]</span>
+                  <span>RSI Mean Reversion 자동매매 인스턴스가 활성화되었습니다. 시장 감시 루프 실행 중.</span>
+                </div>
+              )}
+              {positions.length > 0 && (
+                <div className="flex gap-2 text-zinc-400">
+                  <span className="text-zinc-700">[{new Date().toTimeString().split(' ')[0]}]</span>
+                  <span>보유 자산 실시간 위험도(Risk Exposure): {exposurePct}%</span>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

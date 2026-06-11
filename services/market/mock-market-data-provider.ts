@@ -3,7 +3,7 @@ import { MarketDataProvider, MarketDataCallback } from './interface';
 export class MockMarketDataProvider implements MarketDataProvider {
   private basePrices: Record<string, number>;
 
-  constructor(basePrices: Record<string, number> = { 'AAPL': 150000, 'TSLA': 200000, 'SPY': 500000 }) {
+  constructor(basePrices: Record<string, number> = {}) {
     this.basePrices = basePrices;
   }
 
