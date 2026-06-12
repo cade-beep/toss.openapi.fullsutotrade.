@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { useWorkstation } from '@/lib/context/workstation-context';
+import { useI18n } from '@/lib/i18n/i18n-context';
 import Header from '@/components/layout/header';
 import Footer from '@/components/layout/footer';
 import PortfolioPanel from '@/components/dashboard/portfolio';
@@ -13,13 +14,14 @@ import AIStrategiesPanel from '@/components/dashboard/ai-strategies';
 
 export default function WorkstationDashboard() {
   const { isHydrated, toast, isApiConnected } = useWorkstation();
+  const { t } = useI18n();
 
   // If loading local state cache, show loader screen
   if (!isHydrated) {
     return (
       <div className="flex flex-col items-center justify-center h-screen w-screen bg-black text-emerald-500 font-mono text-xs gap-2 select-none">
         <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        <span>INITIALIZING WORKSTATION SECURITY SESSION...</span>
+        <span>{t('common.initializing')}</span>
       </div>
     );
   }
@@ -48,14 +50,14 @@ export default function WorkstationDashboard() {
       }`}>
         <div className="flex items-center">
           <span className={`w-1.5 h-1.5 rounded-full mr-2 ${isApiConnected ? 'bg-[#00d287]' : 'bg-rose-500 animate-pulse'}`} />
-          {isApiConnected ? 'Broker Connected' : 'Broker API Not Connected'}
+          {isApiConnected ? t('dashboard.brokerConnected') : t('dashboard.brokerDisconnected')}
         </div>
         {!isApiConnected && (
           <a
             href="/broker-settings"
             className="px-2 py-0.5 rounded bg-rose-950/60 border border-rose-900/40 text-rose-300 hover:bg-rose-900/60 hover:text-rose-100 transition-all cursor-pointer font-sans"
           >
-            Configure Credentials
+            {t('dashboard.configureCredentials')}
           </a>
         )}
       </div>

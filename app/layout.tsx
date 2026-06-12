@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import { WorkstationProvider } from '@/lib/context/workstation-context';
+import { I18nProvider } from '@/lib/i18n/i18n-context';
 import ErrorBoundary from '@/components/ui/error-boundary';
 
 const geistSans = Geist({
@@ -27,16 +28,19 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ErrorBoundary>
-          <WorkstationProvider>
-            {children}
-          </WorkstationProvider>
+          <I18nProvider>
+            <WorkstationProvider>
+              {children}
+            </WorkstationProvider>
+          </I18nProvider>
         </ErrorBoundary>
       </body>
     </html>
   );
 }
+

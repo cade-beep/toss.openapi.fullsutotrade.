@@ -1,5 +1,6 @@
 import { sweepInFlightOrders } from '../queue/reconciler-scheduler';
 import { brokerEventsQueue } from '../queue/reconciler-queues';
+import { closeRedisClient } from '../../lib/redis';
 
 // Setup environment variables
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321';
@@ -267,6 +268,11 @@ async function runTests() {
 
   // Restore env
   process.env.NEXT_PUBLIC_TRADING_MODE = origMode;
+  await brokerEventsQueue.close();
+  await closeRedisClient();
 }
 
-runTests().catch(console.error);
+runTests().then(() => process.exit(0)).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

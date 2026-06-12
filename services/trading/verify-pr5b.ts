@@ -3,6 +3,7 @@ import { TossTradingService } from './toss-api';
 import { PaperTradingService } from './paper-trading-service';
 import { RiskEngine } from '../risk/risk-engine';
 import { createClient } from '@supabase/supabase-js';
+import { closeRedisClient } from '../../lib/redis';
 
 // Setup environment variables
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://localhost:54321';
@@ -364,9 +365,10 @@ async function runTests() {
   console.log("\n=========================================");
   console.log("PR-5B ALL VERIFICATION TESTS PASSED SUCCESSFULLY");
   console.log("=========================================");
+  await closeRedisClient();
 }
 
-runTests().catch(err => {
+runTests().then(() => process.exit(0)).catch(err => {
   console.error("❌ Exception during PR-5B verification tests:", err);
   process.exit(1);
 });

@@ -2,9 +2,11 @@
 
 import React from 'react';
 import { useWorkstation } from '@/lib/context/workstation-context';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export default function AIStrategiesPanel() {
   const { strategies, setStrategies, aiSignals, tickers, isApiConnected } = useWorkstation();
+  const { t } = useI18n();
 
   // Helper to render text confidence bar
   const renderConfidenceBar = (confidence: number) => {
@@ -16,10 +18,10 @@ export default function AIStrategiesPanel() {
   return (
     <div className="flex flex-col flex-1 bg-zinc-950 border border-zinc-900 rounded overflow-hidden select-none">
       <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-900/60 shrink-0">
-        <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">AI Strategies</h2>
+        <h2 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">{t('aiStrategies.title')}</h2>
         {!isApiConnected ? (
           <span className="flex items-center gap-1">
-            <span className="text-[8px] font-mono text-rose-500 font-semibold uppercase animate-pulse">NO CONNECTION</span>
+            <span className="text-[8px] font-mono text-rose-500 font-semibold uppercase animate-pulse">{t('header.disconnected')}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
           </span>
         ) : (
@@ -41,16 +43,16 @@ export default function AIStrategiesPanel() {
         } ${!isApiConnected ? 'opacity-55' : ''}`}>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-zinc-200">MA Crossover Bot</span>
+              <span className="text-xs font-bold text-zinc-200">{t('aiStrategies.runCrossover')}</span>
               <span className={`text-[8px] font-mono font-bold leading-none px-1 py-0.2 rounded ${
                 strategies.ma.active && isApiConnected ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
               }`}>
-                {strategies.ma.active && isApiConnected ? 'RUNNING' : 'STANDBY'}
+                {strategies.ma.active && isApiConnected ? t('common.active') : t('common.inactive')}
               </span>
             </div>
             <div className="text-[9px] text-zinc-500 font-mono mt-0.5">Fast {strategies.ma.fast} / Slow {strategies.ma.slow} EMA</div>
           </div>
-          <label className="relative inline-flex inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
               disabled={!isApiConnected}
@@ -70,16 +72,16 @@ export default function AIStrategiesPanel() {
         } ${!isApiConnected ? 'opacity-55' : ''}`}>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-zinc-200">RSI Mean Reversion</span>
+              <span className="text-xs font-bold text-zinc-200">{t('aiStrategies.meanReversion')}</span>
               <span className={`text-[8px] font-mono font-bold leading-none px-1 py-0.2 rounded ${
                 strategies.rsi.active && isApiConnected ? 'bg-emerald-950 text-emerald-400' : 'bg-zinc-800 text-zinc-500'
               }`}>
-                {strategies.rsi.active && isApiConnected ? 'RUNNING' : 'STANDBY'}
+                {strategies.rsi.active && isApiConnected ? t('common.active') : t('common.inactive')}
               </span>
             </div>
             <div className="text-[9px] text-zinc-500 font-mono mt-0.5">Oversold {strategies.rsi.oversold} / Overbought {strategies.rsi.overbought}</div>
           </div>
-          <label className="relative inline-flex inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer">
             <input
               type="checkbox"
               disabled={!isApiConnected}
@@ -103,7 +105,7 @@ export default function AIStrategiesPanel() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <span className="text-xs text-zinc-400 font-semibold font-sans">No Live Strategy Data Available</span>
-            <span className="text-[10px] text-zinc-550 max-w-xs mt-1 font-sans">Active broker credentials are required to capture live trading decisions and telemetry.</span>
+            <span className="text-[10px] text-zinc-550 max-w-xs mt-1 font-sans">{t('aiStrategies.apiRequired')}</span>
           </div>
         ) : aiSignals.length === 0 ? (
           <div className="text-center py-12 text-zinc-700 text-[11px] font-sans">
@@ -126,7 +128,7 @@ export default function AIStrategiesPanel() {
                     <span className={`font-bold px-1.5 py-0.2 rounded ${
                       isBuy ? 'bg-[#00d287]/15 text-[#00d287]' : 'bg-[#f43f5e]/15 text-[#f43f5e]'
                     }`}>
-                      {sig.action}
+                      {isBuy ? t('orderTicket.buy') : t('orderTicket.sell')}
                     </span>
                   </div>
                   <div className="text-[11px] font-bold text-zinc-200 leading-none">
@@ -148,3 +150,4 @@ export default function AIStrategiesPanel() {
     </div>
   );
 }
+

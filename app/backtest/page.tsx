@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { backtester } from '@/services/ai/backtester';
 import { BacktestTrade } from '@/services/ai/metrics-calculator';
 import { parseCSV } from '@/lib/utils/csv-parser';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export default function BacktestDashboardPage() {
+  const { t, formatCurrency } = useI18n();
   const [strategyName, setStrategyName] = useState<'Moving Average Crossover' | 'RSI Mean Reversion'>('Moving Average Crossover');
   const [symbol, setSymbol] = useState<string>('005930');
   const [startDate, setStartDate] = useState<string>('2026-01-01');
@@ -115,11 +117,11 @@ export default function BacktestDashboardPage() {
           equityCurve: res.equityCurve
         });
       } else {
-        setErrorMsg(res.error || '시뮬레이션 수행에 실패했습니다. 데이터를 확인해주세요.');
+        setErrorMsg(res.error || t('backtest.backtestFailed', { defaultValue: '시뮬레이션 수행에 실패했습니다. 데이터를 확인해주세요.' }));
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setErrorMsg(`에러가 발생했습니다: ${msg}`);
+      setErrorMsg(t('backtest.backtestError', { error: msg, defaultValue: `에러가 발생했습니다: ${msg}` }));
     } finally {
       setLoading(false);
     }
@@ -188,14 +190,14 @@ export default function BacktestDashboardPage() {
 
         {/* Labels */}
         <text x={padding} y={padding - 5} fill="#71717a" fontSize="8" className="font-mono">
-          MAX: {maxVal.toLocaleString()} KRW
+          MAX: {formatCurrency(maxVal)}
         </text>
         <text x={padding} y={height - padding + 15} fill="#71717a" fontSize="8" className="font-mono">
-          MIN: {minVal.toLocaleString()} KRW
+          MIN: {formatCurrency(minVal)}
         </text>
       </svg>
     );
-  }, [results, initialCapital]);
+  }, [results, initialCapital, formatCurrency]);
 
   return (
     <div className="min-h-screen w-screen bg-black text-zinc-300 font-mono text-xs p-6 select-none">
@@ -204,21 +206,21 @@ export default function BacktestDashboardPage() {
         {/* Header Title */}
         <div className="flex justify-between items-center border-b border-zinc-900 pb-4">
           <div>
-            <h1 className="text-sm font-bold text-white uppercase tracking-wider">Strategy Backtester</h1>
-            <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Simulate rule-based strategies over historical stock feeds</p>
+            <h1 className="text-sm font-bold text-white uppercase tracking-wider">{t('backtest.title')}</h1>
+            <p className="text-[10px] text-zinc-500 font-sans mt-0.5">{t('backtest.subTitle')}</p>
           </div>
           <div className="flex gap-2">
             <Link
               href="/broker-settings"
               className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors font-bold cursor-pointer"
             >
-              Broker Settings
+              {t('common.brokerSettings')}
             </Link>
             <Link
               href="/"
               className="px-2.5 py-1 rounded bg-[#00d287] hover:bg-[#00be7a] border border-[#00d287] text-zinc-950 transition-colors font-bold cursor-pointer"
             >
-              ← Workstation
+              ← {t('common.dashboard')}
             </Link>
           </div>
         </div>
@@ -228,23 +230,23 @@ export default function BacktestDashboardPage() {
           
           {/* Inputs Form */}
           <div className="md:col-span-1 bg-zinc-950 border border-zinc-900 rounded p-4 space-y-4">
-            <h2 className="text-[10px] uppercase font-bold text-white tracking-wide border-b border-zinc-900 pb-1.5">Simulation Parameters</h2>
+            <h2 className="text-[10px] uppercase font-bold text-white tracking-wide border-b border-zinc-900 pb-1.5">{t('backtest.paramsTitle')}</h2>
             
             <form onSubmit={handleRunBacktest} className="space-y-3">
               <div className="flex flex-col gap-1">
-                <label className="text-zinc-500 font-sans text-[10px]">Strategy Rule</label>
+                <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.strategyLabel')}</label>
                 <select
                   value={strategyName}
                   onChange={(e) => setStrategyName(e.target.value as 'Moving Average Crossover' | 'RSI Mean Reversion')}
                   className="bg-zinc-900 border border-zinc-900 rounded px-2.5 py-1.5 text-white focus:outline-none text-[11px]"
                 >
-                  <option value="Moving Average Crossover">Moving Average Crossover</option>
-                  <option value="RSI Mean Reversion">RSI Mean Reversion</option>
+                  <option value="Moving Average Crossover">{t('aiStrategies.runCrossover')}</option>
+                  <option value="RSI Mean Reversion">{t('aiStrategies.meanReversion')}</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-zinc-500 font-sans text-[10px]">Ticker Symbol</label>
+                <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.tickerLabel')}</label>
                 <input
                   type="text"
                   value={symbol}
@@ -257,7 +259,7 @@ export default function BacktestDashboardPage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col gap-1">
-                  <label className="text-zinc-500 font-sans text-[10px]">Start Date</label>
+                  <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.startLabel')}</label>
                   <input
                     type="date"
                     value={startDate}
@@ -267,7 +269,7 @@ export default function BacktestDashboardPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-zinc-500 font-sans text-[10px]">End Date</label>
+                  <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.endLabel')}</label>
                   <input
                     type="date"
                     value={endDate}
@@ -279,7 +281,7 @@ export default function BacktestDashboardPage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-zinc-500 font-sans text-[10px]">Initial Capital (KRW)</label>
+                <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.initialCapitalLabel')}</label>
                 <input
                   type="number"
                   value={initialCapital}
@@ -293,7 +295,7 @@ export default function BacktestDashboardPage() {
               {strategyName === 'Moving Average Crossover' ? (
                 <div className="grid grid-cols-2 gap-2 border-t border-zinc-900 pt-2">
                   <div className="flex flex-col gap-1">
-                    <label className="text-zinc-500 font-sans text-[10px]">Fast SMA Period</label>
+                    <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.fastPeriodLabel')}</label>
                     <input
                       type="number"
                       value={fastPeriod}
@@ -304,7 +306,7 @@ export default function BacktestDashboardPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-zinc-500 font-sans text-[10px]">Slow SMA Period</label>
+                    <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.slowPeriodLabel')}</label>
                     <input
                       type="number"
                       value={slowPeriod}
@@ -318,7 +320,7 @@ export default function BacktestDashboardPage() {
               ) : (
                 <div className="grid grid-cols-3 gap-2 border-t border-zinc-900 pt-2">
                   <div className="flex flex-col gap-1 col-span-1">
-                    <label className="text-zinc-500 font-sans text-[10px]">RSI Period</label>
+                    <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.rsiPeriodLabel')}</label>
                     <input
                       type="number"
                       value={rsiPeriod}
@@ -329,7 +331,7 @@ export default function BacktestDashboardPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1 col-span-1">
-                    <label className="text-zinc-500 font-sans text-[10px]">Oversold</label>
+                    <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.oversoldLabel')}</label>
                     <input
                       type="number"
                       value={oversold}
@@ -339,7 +341,7 @@ export default function BacktestDashboardPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-1 col-span-1">
-                    <label className="text-zinc-500 font-sans text-[10px]">Overbought</label>
+                    <label className="text-zinc-500 font-sans text-[10px]">{t('backtest.overboughtLabel')}</label>
                     <input
                       type="number"
                       value={overbought}
@@ -352,7 +354,7 @@ export default function BacktestDashboardPage() {
               )}
 
               <div className="flex flex-col gap-1">
-                <label className="text-zinc-500 font-sans text-[10px]">Order Trade Size (Qty)</label>
+                <label className="text-zinc-550 font-sans text-[10px]">{t('backtest.orderSizeLabel')}</label>
                 <input
                   type="number"
                   value={orderSize}
@@ -365,15 +367,15 @@ export default function BacktestDashboardPage() {
 
               {/* CSV Upload Area */}
               <div className="flex flex-col gap-1 border-t border-zinc-900 pt-2.5">
-                <label className="text-zinc-500 font-sans text-[10px]">CSV Market Data (Optional)</label>
+                <label className="text-zinc-550 font-sans text-[10px]">{t('backtest.csvLabel')}</label>
                 <input
                   type="file"
                   accept=".csv"
                   onChange={handleCsvUpload}
-                  className="text-[10px] text-zinc-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-mono file:bg-zinc-900 file:text-zinc-300 file:cursor-pointer hover:file:bg-zinc-800"
+                  className="text-[10px] text-zinc-550 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-[10px] file:font-mono file:bg-zinc-900 file:text-zinc-300 file:cursor-pointer hover:file:bg-zinc-800"
                 />
                 {csvFileName && (
-                  <span className="text-[9px] text-[#00d287] mt-0.5 block truncate">✓ Loaded: {csvFileName}</span>
+                  <span className="text-[9px] text-[#00d287] mt-0.5 block truncate">{t('backtest.csvLoaded', { fileName: csvFileName })}</span>
                 )}
               </div>
 
@@ -382,18 +384,18 @@ export default function BacktestDashboardPage() {
                 disabled={loading}
                 className="w-full mt-3 px-3 py-2 rounded bg-[#00d287] hover:bg-[#00be7a] text-zinc-950 font-bold tracking-wider uppercase transition-colors cursor-pointer disabled:opacity-40"
               >
-                {loading ? 'Running Simulation...' : 'Execute Backtest'}
+                {loading ? t('backtest.runningSimulation') : t('backtest.runBacktestButton')}
               </button>
             </form>
           </div>
 
           {/* Graphical Equity Curve */}
           <div className="md:col-span-2 flex flex-col bg-zinc-950 border border-zinc-900 rounded p-4 select-none">
-            <h2 className="text-[10px] uppercase font-bold text-white tracking-wide border-b border-zinc-900 pb-1.5 mb-3">Equity Growth Curve</h2>
+            <h2 className="text-[10px] uppercase font-bold text-white tracking-wide border-b border-zinc-900 pb-1.5 mb-3">{t('backtest.chartTitle')}</h2>
             
             {errorMsg && (
               <div className="p-3 rounded border border-rose-900/30 bg-rose-950/20 text-rose-400 text-[11px]">
-                <span className="font-bold block mb-0.5">✗ ERROR OCCURRED</span>
+                <span className="font-bold block mb-0.5">✗ {t('common.error')}</span>
                 <span>{errorMsg}</span>
               </div>
             )}
@@ -403,8 +405,8 @@ export default function BacktestDashboardPage() {
                 <svg className="w-10 h-10 mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                 </svg>
-                <span>No Active Backtest Simulation</span>
-                <span className="text-[10px] max-w-xs mt-1">Configure historical date bounds and parameter settings to trigger path analysis.</span>
+                <span>{t('backtest.noBacktestTitle')}</span>
+                <span className="text-[10px] max-w-xs mt-1">{t('backtest.noBacktestDesc')}</span>
               </div>
             )}
 
@@ -417,12 +419,12 @@ export default function BacktestDashboardPage() {
                 {/* Visual stats mini summary */}
                 <div className="grid grid-cols-2 gap-4 mt-4 border-t border-zinc-900 pt-3 text-[10px]">
                   <div>
-                    <span className="text-zinc-500 block uppercase">Simulated Ticks:</span>
-                    <span className="text-white font-bold">{results.equityCurve.length} trading days</span>
+                    <span className="text-zinc-550 block uppercase">{t('backtest.simulatedTicks')}:</span>
+                    <span className="text-white font-bold">{t('backtest.tradingDays', { days: results.equityCurve.length })}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-zinc-500 block uppercase">Final Net Value:</span>
-                    <span className="text-[#00d287] font-bold">{results.metrics.finalValue.toLocaleString()} KRW</span>
+                    <span className="text-zinc-550 block uppercase">{t('backtest.finalNetValue')}:</span>
+                    <span className="text-[#00d287] font-bold">{formatCurrency(results.metrics.finalValue)}</span>
                   </div>
                 </div>
               </div>
@@ -435,7 +437,7 @@ export default function BacktestDashboardPage() {
         {results && (
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3 select-none">
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
-              <span className="text-zinc-500 uppercase text-[9px] block mb-1">Total Return</span>
+              <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.returnMetric')}</span>
               <span className={`text-sm font-bold block ${results.metrics.totalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {results.metrics.totalReturn >= 0 ? '+' : ''}
                 {results.metrics.totalReturn.toFixed(2)}%
@@ -443,7 +445,7 @@ export default function BacktestDashboardPage() {
             </div>
             
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
-              <span className="text-zinc-500 uppercase text-[9px] block mb-1">CAGR</span>
+              <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.cagrMetric')}</span>
               <span className={`text-sm font-bold block ${results.metrics.cagr >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {results.metrics.cagr >= 0 ? '+' : ''}
                 {(results.metrics.cagr * 100).toFixed(2)}%
@@ -451,28 +453,28 @@ export default function BacktestDashboardPage() {
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
-              <span className="text-zinc-500 uppercase text-[9px] block mb-1">Win Rate</span>
+              <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.winRateMetric')}</span>
               <span className="text-sm font-bold text-white block">
                 {(results.metrics.winRate * 100).toFixed(1)}%
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
-              <span className="text-zinc-500 uppercase text-[9px] block mb-1">Profit Factor</span>
+              <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.profitFactorMetric')}</span>
               <span className="text-sm font-bold text-white block">
                 {results.metrics.profitFactor === Infinity ? '∞' : results.metrics.profitFactor.toFixed(2)}
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
-              <span className="text-zinc-500 uppercase text-[9px] block mb-1">Max Drawdown</span>
+              <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.mddMetric')}</span>
               <span className="text-sm font-bold text-rose-400 block">
                 -{(results.metrics.maxDrawdown * 100).toFixed(2)}%
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
-              <span className="text-zinc-500 uppercase text-[9px] block mb-1">Sharpe Ratio</span>
+              <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.sharpeMetric')}</span>
               <span className="text-sm font-bold text-white block">
                 {results.metrics.sharpeRatio.toFixed(2)}
               </span>
@@ -484,26 +486,26 @@ export default function BacktestDashboardPage() {
         {results && (
           <div className="bg-zinc-950 border border-zinc-900 rounded p-4">
             <h2 className="text-[10px] uppercase font-bold text-white tracking-wide border-b border-zinc-900 pb-1.5 mb-3 flex justify-between items-center">
-              <span>Historical Fills Log</span>
-              <span className="text-zinc-500 font-normal">{results.trades.length} executions</span>
+              <span>{t('backtest.tradesTitle')}</span>
+              <span className="text-zinc-550 font-normal">{t('backtest.executionsCount', { count: results.trades.length })}</span>
             </h2>
 
             {results.trades.length === 0 ? (
               <div className="py-12 text-center text-zinc-550 font-sans">
-                No orders filled during this historical backtesting session.
+                {t('backtest.emptyTrades')}
               </div>
             ) : (
               <div className="overflow-x-auto select-none">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-zinc-900 text-zinc-500 text-[10px] uppercase">
-                      <th className="py-2 pb-1.5 font-bold">Date</th>
-                      <th className="py-2 pb-1.5 font-bold">Symbol</th>
-                      <th className="py-2 pb-1.5 font-bold">Action</th>
-                      <th className="py-2 pb-1.5 font-bold text-right">Qty</th>
-                      <th className="py-2 pb-1.5 font-bold text-right">Execution Price</th>
-                      <th className="py-2 pb-1.5 font-bold text-right">Value (KRW)</th>
-                      <th className="py-2 pb-1.5 font-bold text-right">Realized PnL</th>
+                      <th className="py-2 pb-1.5 font-bold">{t('backtest.tradeTime')}</th>
+                      <th className="py-2 pb-1.5 font-bold">{t('backtest.tradeSymbol')}</th>
+                      <th className="py-2 pb-1.5 font-bold">{t('backtest.tradeSide')}</th>
+                      <th className="py-2 pb-1.5 font-bold text-right">{t('backtest.tradeQty')}</th>
+                      <th className="py-2 pb-1.5 font-bold text-right">{t('backtest.tradePrice')}</th>
+                      <th className="py-2 pb-1.5 font-bold text-right">{t('backtest.tradeValue')}</th>
+                      <th className="py-2 pb-1.5 font-bold text-right">{t('positions.pnl')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900/40 text-[11px]">
@@ -517,17 +519,17 @@ export default function BacktestDashboardPage() {
                               ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30'
                               : 'bg-rose-950/20 text-rose-400 border border-rose-900/30'
                           }`}>
-                            {trade.side}
+                            {trade.side === 'BUY' ? t('orderTicket.buy') : t('orderTicket.sell')}
                           </span>
                         </td>
                         <td className="py-2 text-right text-zinc-300">{trade.qty}</td>
-                        <td className="py-2 text-right text-zinc-300">{trade.price.toLocaleString()}</td>
-                        <td className="py-2 text-right text-zinc-300">{trade.totalValue.toLocaleString()}</td>
+                        <td className="py-2 text-right text-zinc-300">{formatCurrency(trade.price)}</td>
+                        <td className="py-2 text-right text-zinc-300">{formatCurrency(trade.totalValue)}</td>
                         <td className="py-2 text-right font-bold">
                           {trade.pnl !== undefined ? (
                             <span className={trade.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                               {trade.pnl >= 0 ? '+' : ''}
-                              {trade.pnl.toLocaleString()}
+                              {formatCurrency(trade.pnl)}
                             </span>
                           ) : (
                             <span className="text-zinc-550">--</span>

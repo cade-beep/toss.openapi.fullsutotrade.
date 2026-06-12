@@ -2,6 +2,7 @@ import { TradingServiceFactory } from './factory';
 import { TossTradingService } from './toss-api';
 import { PaperTradingService } from './paper-trading-service';
 import { createClient } from '@supabase/supabase-js';
+import { closeRedisClient } from '../../lib/redis';
 
 // Mock database to simulate unique constraint violation
 function createMockSupabase(userId: string = 'test-user-123') {
@@ -281,6 +282,10 @@ async function runTests() {
       checkRLS ? "✅ PASS" : "❌ FAIL"
     );
   }
+  await closeRedisClient();
 }
 
-runTests().catch(console.error);
+runTests().then(() => process.exit(0)).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

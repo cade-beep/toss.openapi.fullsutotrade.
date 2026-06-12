@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { tossTokenCache } from '@/services/trading/toss-token-cache';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -86,13 +87,7 @@ export async function POST(request: NextRequest) {
 
     const isSimulation = creds.is_simulation;
 
-    // 3. Generate HMAC Signature
-    const timestamp = Date.now().toString();
-    const rawPayloadString = body ? JSON.stringify(body) : '';
-    const message = `${method}${path}${timestamp}${rawPayloadString}`;
-    const signature = crypto.createHmac('sha256', secretKey).update(message).digest('hex');
-
-    // 4. Verify TOSS_API_URL and block simulation requests
+    // 3. Verify TOSS_API_URL and block simulation requests
     const tossApiUrl = process.env.TOSS_API_URL;
     if (!tossApiUrl) {
       return NextResponse.json({ error: 'ConfigurationError: TOSS_API_URL environment variable is not configured.' }, { status: 500 });
@@ -102,14 +97,74 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'NotImplementedError: Simulation mode is deactivated for production security.' }, { status: 501 });
     }
 
-    // Forward signed request to Live Toss API
+    // 4. Retrieve OAuth2 Token
+    let accessToken = '';
+    try {
+      accessToken = await tossTokenCache.getToken(apiKey, secretKey);
+    } catch (err: any) {
+      return NextResponse.json({ error: `SystemError: OAuth2 token retrieval failed: ${err.message}` }, { status: 500 });
+    }
+
+    // 5. Resolve Account ID (Sequence)
+    let accountId = creds.account_id || '';
+    if (!accountId) {
+      console.log(`[TossProxy] Account ID not found in database for user ${user.id}. Discovering via /api/v1/accounts...`);
+      try {
+        const accountsRes = await fetch(`${tossApiUrl}/api/v1/accounts`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        if (!accountsRes.ok) {
+          const errBody = await accountsRes.json().catch(() => ({}));
+          throw new Error(errBody.error?.message || errBody.error || `HTTP ${accountsRes.status}`);
+        }
+
+        const accountsData = await accountsRes.json();
+        const accountsList = accountsData.result || [];
+        const brokerageAccount = accountsList.find((acc: any) => acc.accountType === 'BROKERAGE');
+
+        if (!brokerageAccount) {
+          return NextResponse.json({ error: 'ConfigurationError: No brokerage account found during discovery.' }, { status: 404 });
+        }
+
+        const discoveredSeq = brokerageAccount.accountSeq;
+        if (discoveredSeq === undefined || discoveredSeq === null) {
+          return NextResponse.json({ error: 'ConfigurationError: Discovered brokerage account is missing accountSeq.' }, { status: 500 });
+        }
+
+        accountId = String(discoveredSeq);
+
+        // Persist to database
+        const { error: updateError } = await supabase
+          .from('api_credentials')
+          .update({ account_id: accountId, updated_at: new Date().toISOString() })
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error(`[TossProxy] Failed to persist account_id: ${updateError.message}`);
+        } else {
+          console.log(`[TossProxy] Successfully persisted account_id: ${accountId} for user ${user.id}`);
+        }
+      } catch (err: any) {
+        return NextResponse.json({ error: `SystemError: Account discovery failed: ${err.message}` }, { status: 500 });
+      }
+    }
+
+    // 6. Forward signed request to Live Toss API
     console.log(`[TossProxy] Forwarding signed request to Toss API: ${method} ${path}`);
-    const headers = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-TOSS-API-KEY': apiKey,
-      'X-TOSS-SIGNATURE': signature,
-      'X-TOSS-TIMESTAMP': timestamp,
+      'Authorization': `Bearer ${accessToken}`
     };
+
+    // Inject X-Tossinvest-Account header for resource endpoints
+    const isAuthOrDiscovery = path === '/oauth2/token' || path === '/api/v1/accounts';
+    if (!isAuthOrDiscovery) {
+      headers['X-Tossinvest-Account'] = accountId;
+    }
 
     const res = await fetch(`${tossApiUrl}${path}`, {
       method,
@@ -117,13 +172,14 @@ export async function POST(request: NextRequest) {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     return NextResponse.json(data, { status: res.status });
   } catch (err: any) {
     console.error('[TossProxy] Proxy error:', err);
     return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
   }
 }
+
 
 // Master key derivation using SHA-256 to ensure exactly 32 bytes (256 bits)
 function getMasterKey(): Buffer {

@@ -2,10 +2,11 @@
 
 import React from 'react';
 import { useWorkstation } from '@/lib/context/workstation-context';
-
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export default function Footer() {
   const { ordersLog, positions, cashBalance, tickers, strategies, isApiConnected } = useWorkstation();
+  const { t, formatCurrency } = useI18n();
 
   // Compute portfolio risk exposure
   const portfolioAssetsValue = positions.reduce((total, pos) => {
@@ -25,16 +26,16 @@ export default function Footer() {
       {/* Order Executions Ledger */}
       <div className="flex flex-col h-full overflow-hidden">
         <div className="px-3 py-1 bg-black/40 border-b border-zinc-900/60 text-[8.5px] uppercase tracking-wider text-zinc-500 shrink-0 font-bold">
-          Order Executions Ledger
+          {t('positions.ledgerTitle')}
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {!isApiConnected ? (
             <div className="text-rose-500/80 text-[10px] text-center py-4 flex flex-col items-center justify-center gap-1 font-semibold uppercase tracking-wider">
-              <span>API Not Connected</span>
-              <span className="text-zinc-700 text-[9px] font-normal lowercase font-sans">Configure Toss credentials to view order logs</span>
+              <span>{t('header.disconnected')}</span>
+              <span className="text-zinc-700 text-[9px] font-normal lowercase font-sans">{t('positions.apiRequired')}</span>
             </div>
           ) : ordersLog.length === 0 ? (
-            <div className="text-zinc-700 text-[10px] text-center py-4">No order history logged.</div>
+            <div className="text-zinc-700 text-[10px] text-center py-4">{t('backtest.emptyTrades')}</div>
           ) : (
             ordersLog.map((log) => {
               const ticker = tickers.find((t) => t.symbol === log.symbol);
@@ -45,12 +46,14 @@ export default function Footer() {
                   <div className="flex items-center gap-2">
                     <span className="text-zinc-600">{log.time}</span>
                     <span className="text-zinc-500">{log.id}</span>
-                    <span className={isBuy ? 'text-[#00d287] font-semibold' : 'text-[#f43f5e] font-semibold'}>{log.side}</span>
+                    <span className={isBuy ? 'text-[#00d287] font-semibold' : 'text-[#f43f5e] font-semibold'}>
+                      {isBuy ? t('orderTicket.buy') : t('orderTicket.sell')}
+                    </span>
                     <span className="text-zinc-300 font-medium font-sans">{ticker ? ticker.name : log.symbol}</span>
                   </div>
                   <div className="flex gap-4 text-zinc-400">
                     <span>{log.qty}주</span>
-                    <span>@{log.price.toLocaleString()} KRW</span>
+                    <span>@{formatCurrency(log.price)}</span>
                     <span className="text-[#00d287] font-bold text-[9px]">EXEC</span>
                   </div>
                 </div>
@@ -82,7 +85,7 @@ export default function Footer() {
               </div>
               <div className="flex gap-2 text-zinc-600">
                 <span>[09:00:15]</span>
-                <span>Please configure Toss API credentials in Supabase to authorize trading.</span>
+                <span>Please configure Toss API credentials in settings to authorize trading.</span>
               </div>
             </>
           ) : (
@@ -125,3 +128,4 @@ export default function Footer() {
     </footer>
   );
 }
+

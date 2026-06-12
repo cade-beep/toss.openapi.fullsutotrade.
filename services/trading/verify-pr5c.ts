@@ -23,6 +23,28 @@ const originalFetch = global.fetch;
 global.fetch = async (url: any, options: any) => {
   const urlStr = url.toString();
   if (urlStr.includes('mock-toss-api.com')) {
+    if (urlStr.includes('/oauth2/token')) {
+      return {
+        status: 200,
+        ok: true,
+        json: async () => ({
+          access_token: 'mocked-oauth-token',
+          token_type: 'Bearer',
+          expires_in: 3600
+        })
+      } as any;
+    }
+    if (urlStr.includes('/api/v1/accounts')) {
+      return {
+        status: 200,
+        ok: true,
+        json: async () => ({
+          result: [
+            { accountNo: 'brokerage-456', accountSeq: 888, accountType: 'BROKERAGE' }
+          ]
+        })
+      } as any;
+    }
     fetchCallArgs = { url: urlStr, options };
     return {
       status: 200,
@@ -63,7 +85,17 @@ SupabaseClient.prototype.from = function (table: string) {
           return { data: null, error: { message: 'Table not mocked' } };
         }
       })
-    })
+    }),
+    update: (updates: any) => {
+      if (mockApiCredentialsResult.data) {
+        Object.assign(mockApiCredentialsResult.data, updates);
+      }
+      return {
+        eq: (col: string, val: any) => ({
+          then: (onfulfilled: any) => Promise.resolve({ error: null }).then(onfulfilled)
+        })
+      };
+    }
   } as any;
 };
 
@@ -212,7 +244,7 @@ async function runTests() {
 
     const isRoutedCorrectly = res.status === 200 && resBody.message.includes('Forwarded to Toss API');
     const isFetchCalledWithCredentials = fetchCallArgs !== null &&
-      (fetchCallArgs as any).options.headers['X-TOSS-API-KEY'] === rawApiKey;
+      (fetchCallArgs as any).options.headers['authorization'] === 'Bearer mocked-oauth-token';
 
     if (isRoutedCorrectly && isFetchCalledWithCredentials) {
       console.log('Test D: ✅ PASS');

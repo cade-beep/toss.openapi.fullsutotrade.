@@ -4,9 +4,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useWorkstation } from '@/lib/context/workstation-context';
 import { supabase } from '@/lib/supabase/client';
+import { useI18n } from '@/lib/i18n/i18n-context';
 
 export default function BrokerSettingsPage() {
   const { isHydrated, showToast, reloadUserData } = useWorkstation();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [exists, setExists] = useState(false);
   const [currentAccountId, setCurrentAccountId] = useState('');
@@ -48,11 +50,11 @@ export default function BrokerSettingsPage() {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to load credentials status:', err);
-      showToast(`설정 상태를 불러오지 못했습니다: ${errorMsg}`, 'error');
+      showToast(t('brokerSettings.loadFailToast', { error: errorMsg }), 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => {
     if (isHydrated) {
@@ -65,7 +67,7 @@ export default function BrokerSettingsPage() {
 
   async function handleTestConnection() {
     if (!apiKey || !secretKey || !accountId) {
-      showToast('모든 입력 값을 채워주세요.', 'error');
+      showToast(t('brokerSettings.fillAllFields'), 'error');
       return;
     }
     
@@ -87,15 +89,15 @@ export default function BrokerSettingsPage() {
       
       if (res.ok && data.success) {
         setTestResult({ success: true, message: data.message || 'Connection Verified successfully!' });
-        showToast('API 연결 테스트 성공!', 'success');
+        showToast(t('brokerSettings.testSuccessToast'), 'success');
       } else {
         setTestResult({ success: false, message: data.error || 'Connection verification failed.' });
-        showToast('API 연결 테스트 실패', 'error');
+        showToast(t('brokerSettings.testFailToast'), 'error');
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setTestResult({ success: false, message: errorMsg });
-      showToast('연결 테스트 에러', 'error');
+      showToast(t('brokerSettings.testErrorToast'), 'error');
     } finally {
       setTesting(false);
     }
@@ -103,7 +105,7 @@ export default function BrokerSettingsPage() {
 
   async function handleSave() {
     if (!apiKey || !secretKey || !accountId) {
-      showToast('모든 입력 값을 채워주세요.', 'error');
+      showToast(t('brokerSettings.fillAllFields'), 'error');
       return;
     }
 
@@ -128,22 +130,22 @@ export default function BrokerSettingsPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        showToast('연결 설정을 성공적으로 저장했습니다.', 'success');
+        showToast(t('brokerSettings.saveSuccessToast'), 'success');
         await reloadUserData();
         await loadCredentialStatus();
       } else {
-        showToast(`저장 실패: ${data.error || '알 수 없는 오류'}`, 'error');
+        showToast(t('brokerSettings.saveFailToast', { error: data.error || t('common.unknown') }), 'error');
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      showToast(`저장 중 오류가 발생했습니다: ${errorMsg}`, 'error');
+      showToast(t('brokerSettings.saveErrorToast', { error: errorMsg }), 'error');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!confirm('정말로 연결 설정을 삭제하시겠습니까? 자동매매 인프라가 비활성화됩니다.')) {
+    if (!confirm(t('brokerSettings.confirmDisconnect'))) {
       return;
     }
 
@@ -162,7 +164,7 @@ export default function BrokerSettingsPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        showToast('연결 설정을 삭제했습니다.', 'success');
+        showToast(t('brokerSettings.deleteSuccessToast'), 'success');
         setApiKey('');
         setSecretKey('');
         setAccountId('');
@@ -170,11 +172,11 @@ export default function BrokerSettingsPage() {
         await reloadUserData();
         await loadCredentialStatus();
       } else {
-        showToast(`삭제 실패: ${data.error || '알 수 없는 오류'}`, 'error');
+        showToast(t('brokerSettings.deleteFailToast', { error: data.error || t('common.unknown') }), 'error');
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
-      showToast(`삭제 중 오류가 발생했습니다: ${errorMsg}`, 'error');
+      showToast(t('brokerSettings.deleteErrorToast', { error: errorMsg }), 'error');
     } finally {
       setSaving(false);
     }
@@ -184,7 +186,7 @@ export default function BrokerSettingsPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen w-screen bg-black text-emerald-500 font-mono text-xs gap-2 select-none">
         <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-        <span>LOADING BROKER SETTINGS SESSION...</span>
+        <span>{t('brokerSettings.loadingSettings')}</span>
       </div>
     );
   }
@@ -196,14 +198,14 @@ export default function BrokerSettingsPage() {
         {/* Header Title */}
         <div className="flex justify-between items-center border-b border-zinc-900 pb-3">
           <div>
-            <h1 className="text-sm font-bold text-white uppercase tracking-wider">Broker Settings</h1>
-            <p className="text-[10px] text-zinc-500 font-sans mt-0.5">Configure Toss Open API client credentials</p>
+            <h1 className="text-sm font-bold text-white uppercase tracking-wider">{t('brokerSettings.title')}</h1>
+            <p className="text-[10px] text-zinc-500 font-sans mt-0.5">{t('brokerSettings.subTitle')}</p>
           </div>
           <Link
             href="/"
             className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors font-bold cursor-pointer"
           >
-            ← Return
+            ← {t('common.return')}
           </Link>
         </div>
 
@@ -215,22 +217,22 @@ export default function BrokerSettingsPage() {
         }`}>
           <div className="flex items-center gap-2 font-bold">
             <span className={`w-2 h-2 rounded-full ${exists ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-            <span>{exists ? 'STATUS: BROKER API CONNECTED' : 'STATUS: DISCONNECTED'}</span>
+            <span>{exists ? t('brokerSettings.apiConnected') : t('brokerSettings.apiDisconnected')}</span>
           </div>
           <p className="text-zinc-500 text-[10px] font-sans mt-1">
             {exists 
-              ? `Authorized Account Identifier: ${currentAccountId}. Workstation functionality unlocked.`
-              : 'Workstation widgets are fail-closed and locked. Provide credential keys to unlock.'}
+              ? t('brokerSettings.authorizedAccount', { accountId: currentAccountId })
+              : t('brokerSettings.failClosedNotice')}
           </p>
         </div>
 
         {/* Form Fields */}
         <div className="space-y-3 pt-1">
           <div className="flex flex-col gap-1.5">
-            <label className="text-zinc-500 font-sans">API Key (X-TOSS-API-KEY)</label>
+            <label className="text-zinc-500 font-sans">{t('brokerSettings.apiKeyLabel')}</label>
             <input
               type="password"
-              placeholder="Enter Toss API Key"
+              placeholder={t('brokerSettings.apiKeyPlaceholder')}
               value={apiKey}
               onChange={(e) => {
                 setApiKey(e.target.value);
@@ -241,10 +243,10 @@ export default function BrokerSettingsPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-zinc-500 font-sans">Secret Key (HMAC SHA-256 Signing Secret)</label>
+            <label className="text-zinc-500 font-sans">{t('brokerSettings.secretKeyLabel')}</label>
             <input
               type="password"
-              placeholder="Enter Signing Secret Key"
+              placeholder={t('brokerSettings.secretKeyPlaceholder')}
               value={secretKey}
               onChange={(e) => {
                 setSecretKey(e.target.value);
@@ -255,10 +257,10 @@ export default function BrokerSettingsPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-zinc-500 font-sans">Account ID</label>
+            <label className="text-zinc-500 font-sans">{t('brokerSettings.accountIdLabel')}</label>
             <input
               type="text"
-              placeholder="Enter Account ID"
+              placeholder={t('brokerSettings.accountIdPlaceholder')}
               value={accountId}
               onChange={(e) => {
                 setAccountId(e.target.value);
@@ -277,7 +279,7 @@ export default function BrokerSettingsPage() {
               : 'bg-rose-950/20 border-rose-900/30 text-rose-400'
           }`}>
             <span className="font-mono font-bold block mb-0.5">
-              {testResult.success ? '✓ SUCCESS' : '✗ ERROR'}
+              {testResult.success ? `✓ ${t('brokerSettings.testSuccess')}` : `✗ ${t('brokerSettings.testError')}`}
             </span>
             <span>{testResult.message}</span>
           </div>
@@ -291,7 +293,7 @@ export default function BrokerSettingsPage() {
               disabled={saving}
               className="px-3 py-1.5 rounded bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/40 hover:border-rose-900 text-rose-400 transition-colors font-bold cursor-pointer disabled:opacity-40"
             >
-              Disconnect
+              {t('brokerSettings.disconnectButton')}
             </button>
           )}
           <div className="flex gap-2 ml-auto">
@@ -300,14 +302,14 @@ export default function BrokerSettingsPage() {
               disabled={testing || !apiKey || !secretKey || !accountId}
               className="px-3 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 hover:border-zinc-700 text-zinc-300 font-bold transition-colors cursor-pointer disabled:opacity-40"
             >
-              {testing ? 'Testing...' : 'Test Connection'}
+              {testing ? t('brokerSettings.testing') : t('brokerSettings.testConnection')}
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !apiKey || !secretKey || !accountId}
               className="px-3 py-1.5 rounded bg-[#00d287] hover:bg-[#00be7a] text-zinc-950 font-bold transition-colors cursor-pointer disabled:opacity-40"
             >
-              {saving ? 'Saving...' : 'Save Credentials'}
+              {saving ? t('brokerSettings.saving') : t('brokerSettings.saveButton')}
             </button>
           </div>
         </div>
