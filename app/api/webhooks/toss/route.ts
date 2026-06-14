@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (orderError || !orderData) {
-      console.warn(`[Webhook] Order ${client_order_id} not found. DB Error:`, orderError?.message);
+      console.warn('[Webhook] Order %s not found. DB Error: %s', String(client_order_id), orderError?.message ?? 'unknown');
       return NextResponse.json({ error: 'Unauthorized: Order not found' }, { status: 401 });
     }
 
