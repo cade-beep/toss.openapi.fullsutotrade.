@@ -70,7 +70,13 @@ global.fetch = async (url: any, options: any) => {
   }
 
   // Mock target resources (like holdings/orders) forward
-  if (urlStr.includes('mock-toss-api.com')) {
+  let parsedHost = '';
+  try {
+    parsedHost = new URL(urlStr).hostname;
+  } catch {
+    parsedHost = '';
+  }
+  if (parsedHost === 'mock-toss-api.com') {
     targetCallCount++;
     lastTargetHeaders = {};
     if (options?.headers) {
