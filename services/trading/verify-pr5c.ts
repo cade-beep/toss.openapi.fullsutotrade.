@@ -22,8 +22,9 @@ let fetchCallArgs: { url: string; options: any } | null = null;
 const originalFetch = global.fetch;
 global.fetch = async (url: any, options: any) => {
   const urlStr = url.toString();
-  if (urlStr.includes('mock-toss-api.com')) {
-    if (urlStr.includes('/oauth2/token')) {
+  const parsedUrl = new URL(urlStr);
+  if (parsedUrl.hostname === 'mock-toss-api.com') {
+    if (parsedUrl.pathname === '/oauth2/token') {
       return {
         status: 200,
         ok: true,
@@ -34,7 +35,7 @@ global.fetch = async (url: any, options: any) => {
         })
       } as any;
     }
-    if (urlStr.includes('/api/v1/accounts')) {
+    if (parsedUrl.pathname === '/api/v1/accounts') {
       return {
         status: 200,
         ok: true,
