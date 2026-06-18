@@ -7,6 +7,11 @@ function parsePrice(val: unknown): number {
   return isNaN(num) ? 0 : num;
 }
 
+function isValidWorldIndexSymbol(symbol: string): boolean {
+  // Expected format: dot-prefixed market index code (e.g. ".DJI", ".IXIC")
+  return /^\.[A-Z0-9]{1,15}$/.test(symbol);
+}
+
 async function fetchKoreanIndex(symbol: string) {
   try {
     const rtUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_INDEX:${symbol}`;
@@ -61,7 +66,10 @@ async function fetchKoreanIndex(symbol: string) {
 
 async function fetchWorldIndex(symbol: string) {
   try {
-    const url = `https://api.stock.naver.com/index/${symbol}/basic`;
+    if (!isValidWorldIndexSymbol(symbol)) return null;
+    const safeSymbol = encodeURIComponent(symbol);
+
+    const url = `https://api.stock.naver.com/index/${safeSymbol}/basic`;
     const response = await fetch(url);
     if (!response.ok) return null;
     const data = await response.json();
@@ -82,7 +90,7 @@ async function fetchWorldIndex(symbol: string) {
 
     let history: number[] = [];
     try {
-      const histUrl = `https://api.stock.naver.com/index/${symbol}/price?pageSize=30&page=1`;
+      const histUrl = `https://api.stock.naver.com/index/${safeSymbol}/price?pageSize=30&page=1`;
       const histRes = await fetch(histUrl);
       if (histRes.ok) {
         const arr = await histRes.json();
