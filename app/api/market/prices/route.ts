@@ -91,7 +91,7 @@ async function fetchWorldIndex(symbol: string) {
         }
       }
     } catch (histErr) {
-      console.error(`Failed to fetch history for world index ${symbol}:`, histErr);
+      console.error('Failed to fetch history for world index %s:', symbol, histErr);
     }
 
     if (history.length === 0) {
