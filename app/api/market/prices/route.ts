@@ -100,7 +100,7 @@ async function fetchWorldIndex(symbol: string) {
 
     return { price, change, high, low, history, marketStatus };
   } catch (err) {
-    console.error(`Failed to fetch world index ${symbol}:`, err);
+    console.error('Failed to fetch world index %s:', symbol, err);
     return null;
   }
 }
