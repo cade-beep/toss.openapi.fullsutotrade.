@@ -13,6 +13,19 @@ function isSupabaseConfigured() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate credentials encryption key early in LIVE mode
+    const isLiveMode = process.env.NEXT_PUBLIC_TRADING_MODE === 'LIVE' || process.env.TRADING_MODE === 'LIVE';
+    if (isLiveMode) {
+      const rawKey = process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY;
+      if (!rawKey || rawKey.trim() === '' || 
+          rawKey === 'default-dev-fallback-key-do-not-use-in-prod-12345' || 
+          rawKey === 'dev-key-seed-do-not-use-in-live') {
+        return NextResponse.json({ 
+          error: 'ConfigurationError: TOSS_CREDENTIALS_ENCRYPTION_KEY is required and must not be a default/development key in LIVE mode.' 
+        }, { status: 500 });
+      }
+    }
+
     // 1. Authenticate user context via JWT from request header
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -212,8 +225,14 @@ function getMasterKey(): Buffer {
   const rawKey = process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY;
   const isLiveMode = process.env.NEXT_PUBLIC_TRADING_MODE === 'LIVE' || process.env.TRADING_MODE === 'LIVE';
   
-  if ((!rawKey || rawKey.trim() === '') && isLiveMode) {
-    throw new Error('ConfigurationError: TOSS_CREDENTIALS_ENCRYPTION_KEY is required in LIVE mode but not defined.');
+  if (isLiveMode) {
+    if (!rawKey || rawKey.trim() === '') {
+      throw new Error('ConfigurationError: TOSS_CREDENTIALS_ENCRYPTION_KEY is required in LIVE mode but not defined.');
+    }
+    if (rawKey === 'default-dev-fallback-key-do-not-use-in-prod-12345' || 
+        rawKey === 'dev-key-seed-do-not-use-in-live') {
+      throw new Error('ConfigurationError: Development encryption keys are forbidden in LIVE mode.');
+    }
   }
   
   const encryptionKey = rawKey || 'default-dev-fallback-key-do-not-use-in-prod-12345';

@@ -9,6 +9,7 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key-12345';
 process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY = 'test-encryption-key-for-credentials-123';
 process.env.TOSS_API_URL = 'http://mock-toss-api.com';
 process.env.NEXT_PUBLIC_TRADING_MODE = 'LIVE';
+process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true';
 
 // Setup global mock database state variables
 let mockApiCredentialsResult: { data: any; error: any } = { data: null, error: null };
@@ -223,13 +224,13 @@ async function runTests() {
   // --- Test D: Valid credentials routing ---
   {
     console.log('\n[Test D] Valid credentials routing to Toss API...');
-    const rawApiKey = 'my-real-toss-api-key-123';
-    const rawSecretKey = 'my-real-toss-secret-key-123';
+    const mockApiKey = 'mock-toss-api-key-for-test-purposes-only-999';
+    const mockSecretKey = 'mock-toss-secret-key-for-test-purposes-only-999';
     mockApiCredentialsResult = {
       data: {
         user_id: testUser,
-        encrypted_api_key: encryptSecret(rawApiKey),
-        encrypted_secret_key: encryptSecret(rawSecretKey),
+        encrypted_api_key: encryptSecret(mockApiKey),
+        encrypted_secret_key: encryptSecret(mockSecretKey),
         is_simulation: false
       },
       error: null

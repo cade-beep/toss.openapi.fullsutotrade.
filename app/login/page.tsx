@@ -7,6 +7,14 @@ import { useWorkstation } from '@/lib/context/workstation-context';
 import { supabase } from '@/lib/supabase/client';
 import AntigravityBackground from '@/components/dashboard/antigravity-background';
 
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { handleSignIn, showToast, user } = useWorkstation();
@@ -15,36 +23,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Seed Admin Account into local storage on mount
-  useEffect(() => {
-    try {
-      const savedUsers = localStorage.getItem('toss_local_users');
-      const usersList = savedUsers ? JSON.parse(savedUsers) : [];
-      interface LocalUser {
-        id: string;
-        email: string;
-        password?: string;
-      }
-      const adminExists = usersList.some(
-        (u: LocalUser) => u.email.toLowerCase() === '0128rbgh' || u.email.toLowerCase() === '0128rbgh@toss.im'
-      );
-      if (!adminExists) {
-        usersList.push({
-          id: 'admin-0128',
-          email: '0128rbgh',
-          password: '9508rbgh',
-        });
-        usersList.push({
-          id: 'admin-0128-email',
-          email: '0128rbgh@toss.im',
-          password: '9508rbgh',
-        });
-        localStorage.setItem('toss_local_users', JSON.stringify(usersList));
-      }
-    } catch (err) {
-      console.error('Error seeding admin credentials:', err);
-    }
-  }, []);
 
   // If already logged in, redirect to home
   useEffect(() => {
@@ -85,17 +63,30 @@ export default function LoginPage() {
         const usersList = savedUsers ? JSON.parse(savedUsers) : [];
         
         const foundUser = usersList.find(
-          (u: { email: string; password?: string }) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+          (u: { email: string; password?: string }) => u.email.toLowerCase() === email.toLowerCase()
         );
 
         if (foundUser) {
-          showToast('로그인 성공!', 'success');
-          // Save active user session
-          const userSession = { id: foundUser.id, email: foundUser.email };
-          localStorage.setItem('toss_trading_user', JSON.stringify(userSession));
-          
-          handleSignIn(foundUser.id, foundUser.email);
-          router.push('/');
+          const hashedPassword = await hashPassword(password);
+          const isMatch = foundUser.password === hashedPassword || foundUser.password === password;
+
+          if (isMatch) {
+            // Auto-upgrade legacy plaintext passwords to hashed form in localStorage
+            if (foundUser.password === password) {
+              foundUser.password = hashedPassword;
+              localStorage.setItem('toss_local_users', JSON.stringify(usersList));
+            }
+
+            showToast('로그인 성공!', 'success');
+            // Save active user session
+            const userSession = { id: foundUser.id, email: foundUser.email };
+            localStorage.setItem('toss_trading_user', JSON.stringify(userSession));
+            
+            handleSignIn(foundUser.id, foundUser.email);
+            router.push('/');
+          } else {
+            showToast('이메일 또는 비밀번호가 올바르지 않습니다.', 'error');
+          }
         } else {
           showToast('이메일 또는 비밀번호가 올바르지 않습니다.', 'error');
         }

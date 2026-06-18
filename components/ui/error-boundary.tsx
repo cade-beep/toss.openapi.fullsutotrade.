@@ -31,7 +31,14 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   private handleReset = () => {
     try {
-      localStorage.clear();
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('toss_') || key.startsWith('toss-') || key === 'workstation-locale')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
       window.location.reload();
     } catch (e) {
       console.error('Failed to clear localStorage:', e);

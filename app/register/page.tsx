@@ -7,6 +7,14 @@ import { useWorkstation } from '@/lib/context/workstation-context';
 import { supabase } from '@/lib/supabase/client';
 import AntigravityBackground from '@/components/dashboard/antigravity-background';
 
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default function RegisterPage() {
   const router = useRouter();
   const { handleSignIn, showToast, user } = useWorkstation();
@@ -72,11 +80,14 @@ export default function RegisterPage() {
         if (userExists) {
           showToast('이미 존재하는 계정입니다. 다른 이메일을 사용해주세요.', 'error');
         } else {
-          // Create new user record
+          // Hash the password before saving
+          const hashedPassword = await hashPassword(password);
+          
+          // Create new user record with hashed password
           const newUser = {
             id: `usr-${Date.now()}`,
             email: email.trim(),
-            password: password,
+            password: hashedPassword,
           };
           
           usersList.push(newUser);

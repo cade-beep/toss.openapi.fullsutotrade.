@@ -8,6 +8,7 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key-12345';
 process.env.TOSS_CREDENTIALS_ENCRYPTION_KEY = 'test-encryption-key-for-credentials-123';
 process.env.NEXT_PUBLIC_TRADING_MODE = 'LIVE';
 process.env.TOSS_API_URL = 'http://localhost:3000';
+process.env.NEXT_PUBLIC_AUTH_ENABLED = 'true';
 
 // Global mocks
 let mockAuthUserResult: { data: { user: any } | null; error: any } = {
@@ -82,7 +83,31 @@ global.fetch = async (url: any, options: any) => {
       })
     } as any;
   }
-  return { ok: false } as any;
+  if (urlStr.includes('/oauth2/token')) {
+    return {
+      status: 200,
+      ok: true,
+      json: async () => ({
+        access_token: 'mock-access-token-123',
+        token_type: 'Bearer',
+        expires_in: 3600
+      })
+    } as any;
+  }
+  if (urlStr.includes('/api/v1/buying-power')) {
+    return {
+      status: 200,
+      ok: true,
+      json: async () => ({
+        buying_power: 10000000
+      })
+    } as any;
+  }
+  return { 
+    status: 404,
+    ok: false,
+    json: async () => ({ error: 'Not found' })
+  } as any;
 };
 
 async function runTests() {
