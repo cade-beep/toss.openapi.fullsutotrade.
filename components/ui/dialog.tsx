@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 interface DialogProps {
   isOpen: boolean;
@@ -22,17 +23,15 @@ export default function ConfirmationDialog({ isOpen, onClose, onConfirm, title, 
       />
       
       {/* Dialog Body */}
-      <div className="relative w-full max-w-sm rounded border border-rose-900 bg-zinc-950 p-5 shadow-2xl text-xs font-mono select-none">
+      <div className="relative w-full max-w-sm rounded-xl border border-danger/20 bg-zinc-950 p-4 shadow-2xl text-xs font-mono select-none">
         
         {/* Warning Icon Banner */}
-        <div className="flex items-center gap-2 text-rose-500 mb-3 font-semibold uppercase tracking-wider text-[11px]">
-          <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-            <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-          </svg>
+        <div className="flex items-center gap-2 text-danger mb-4 font-semibold uppercase tracking-wider text-[11px]">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>{title}</span>
         </div>
         
-        <p className="text-zinc-400 mb-5 leading-normal font-sans">
+        <p className="text-zinc-400 mb-4 leading-normal font-sans">
           {description}
         </p>
 
@@ -40,7 +39,7 @@ export default function ConfirmationDialog({ isOpen, onClose, onConfirm, title, 
         <div className="flex gap-2 justify-end">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 rounded bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors font-bold cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors font-bold cursor-pointer"
           >
             취소 (Cancel)
           </button>
@@ -49,7 +48,7 @@ export default function ConfirmationDialog({ isOpen, onClose, onConfirm, title, 
               onConfirm();
               onClose();
             }}
-            className="px-3 py-1.5 rounded bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 transition-colors font-bold cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-danger/15 hover:bg-danger/25 border border-danger/30 hover:border-danger/55 text-danger transition-colors font-bold cursor-pointer"
           >
             확인 (Confirm)
           </button>

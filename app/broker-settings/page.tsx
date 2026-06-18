@@ -26,9 +26,14 @@ export default function BrokerSettingsPage() {
   const loadCredentialStatus = useCallback(async () => {
     try {
       setLoading(true);
-      if (!supabase) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
+      const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
+      if (authEnabled && !supabase) return;
+
+      let token = 'dev-token-123';
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || token;
+      }
 
       const res = await fetch('/api/credentials', {
         headers: {
@@ -66,7 +71,7 @@ export default function BrokerSettingsPage() {
   }, [isHydrated, loadCredentialStatus]);
 
   async function handleTestConnection() {
-    if (!apiKey || !secretKey || !accountId) {
+    if (!apiKey || !secretKey) {
       showToast(t('brokerSettings.fillAllFields'), 'error');
       return;
     }
@@ -90,6 +95,9 @@ export default function BrokerSettingsPage() {
       if (res.ok && data.success) {
         setTestResult({ success: true, message: data.message || 'Connection Verified successfully!' });
         showToast(t('brokerSettings.testSuccessToast'), 'success');
+        if (data.accountId) {
+          setAccountId(data.accountId);
+        }
       } else {
         setTestResult({ success: false, message: data.error || 'Connection verification failed.' });
         showToast(t('brokerSettings.testFailToast'), 'error');
@@ -104,16 +112,21 @@ export default function BrokerSettingsPage() {
   }
 
   async function handleSave() {
-    if (!apiKey || !secretKey || !accountId) {
+    if (!apiKey || !secretKey) {
       showToast(t('brokerSettings.fillAllFields'), 'error');
       return;
     }
 
     setSaving(true);
     try {
-      if (!supabase) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
+      const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
+      if (authEnabled && !supabase) return;
+
+      let token = 'dev-token-123';
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || token;
+      }
 
       const res = await fetch('/api/credentials', {
         method: 'POST',
@@ -151,9 +164,14 @@ export default function BrokerSettingsPage() {
 
     setSaving(true);
     try {
-      if (!supabase) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token || '';
+      const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
+      if (authEnabled && !supabase) return;
+
+      let token = 'dev-token-123';
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || token;
+      }
 
       const res = await fetch('/api/credentials', {
         method: 'DELETE',
@@ -184,8 +202,8 @@ export default function BrokerSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen w-screen bg-black text-emerald-500 font-mono text-xs gap-2 select-none">
-        <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-col items-center justify-center h-screen w-screen bg-black text-success font-mono text-xs gap-2 select-none">
+        <div className="w-4 h-4 border-2 border-success border-t-transparent rounded-full animate-spin" />
         <span>{t('brokerSettings.loadingSettings')}</span>
       </div>
     );
@@ -193,33 +211,33 @@ export default function BrokerSettingsPage() {
 
   return (
     <div className="min-h-screen w-screen bg-black text-zinc-300 font-mono text-xs p-6 flex items-center justify-center select-none">
-      <div className="w-full max-w-md bg-zinc-950 border border-zinc-900 rounded p-6 shadow-2xl space-y-5">
+      <div className="w-full max-w-md bg-zinc-950 border border-zinc-900 rounded-xl p-6 shadow-2xl space-y-4">
         
         {/* Header Title */}
         <div className="flex justify-between items-center border-b border-zinc-900 pb-3">
           <div>
             <h1 className="text-sm font-bold text-white uppercase tracking-wider">{t('brokerSettings.title')}</h1>
-            <p className="text-[10px] text-zinc-500 font-sans mt-0.5">{t('brokerSettings.subTitle')}</p>
+            <p className="text-[10px] text-zinc-550 font-sans mt-0.5">{t('brokerSettings.subTitle')}</p>
           </div>
           <Link
             href="/"
-            className="px-2.5 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors font-bold cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors font-bold cursor-pointer"
           >
             ← {t('common.return')}
           </Link>
         </div>
 
         {/* Status Indicator Banner */}
-        <div className={`p-3 rounded border text-[11px] leading-normal ${
+        <div className={`p-4 rounded-xl border text-[11px] leading-normal ${
           exists
-            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-            : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+            ? 'bg-success/10 border-success/20 text-success'
+            : 'bg-danger/10 border-danger/20 text-danger'
         }`}>
           <div className="flex items-center gap-2 font-bold">
-            <span className={`w-2 h-2 rounded-full ${exists ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+            <span className={`w-2 h-2 rounded-full ${exists ? 'bg-success' : 'bg-danger animate-pulse'}`} />
             <span>{exists ? t('brokerSettings.apiConnected') : t('brokerSettings.apiDisconnected')}</span>
           </div>
-          <p className="text-zinc-500 text-[10px] font-sans mt-1">
+          <p className="text-zinc-550 text-[10px] font-sans mt-1">
             {exists 
               ? t('brokerSettings.authorizedAccount', { accountId: currentAccountId })
               : t('brokerSettings.failClosedNotice')}
@@ -227,9 +245,9 @@ export default function BrokerSettingsPage() {
         </div>
 
         {/* Form Fields */}
-        <div className="space-y-3 pt-1">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-zinc-500 font-sans">{t('brokerSettings.apiKeyLabel')}</label>
+        <div className="space-y-4 pt-1">
+          <div className="flex flex-col gap-2">
+            <label className="text-zinc-550 font-sans">{t('brokerSettings.apiKeyLabel')}</label>
             <input
               type="password"
               placeholder={t('brokerSettings.apiKeyPlaceholder')}
@@ -238,12 +256,12 @@ export default function BrokerSettingsPage() {
                 setApiKey(e.target.value);
                 setTestResult(null);
               }}
-              className="bg-zinc-900 border border-zinc-900 focus:border-zinc-800 rounded px-3 py-1.5 text-white focus:outline-none text-[11px]"
+              className="bg-zinc-900 border border-zinc-900 focus:border-zinc-800 rounded-xl px-3 py-1.5 text-white focus:outline-none text-[11px]"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-zinc-500 font-sans">{t('brokerSettings.secretKeyLabel')}</label>
+          <div className="flex flex-col gap-2">
+            <label className="text-zinc-550 font-sans">{t('brokerSettings.secretKeyLabel')}</label>
             <input
               type="password"
               placeholder={t('brokerSettings.secretKeyPlaceholder')}
@@ -252,31 +270,18 @@ export default function BrokerSettingsPage() {
                 setSecretKey(e.target.value);
                 setTestResult(null);
               }}
-              className="bg-zinc-900 border border-zinc-900 focus:border-zinc-800 rounded px-3 py-1.5 text-white focus:outline-none text-[11px]"
+              className="bg-zinc-900 border border-zinc-900 focus:border-zinc-800 rounded-xl px-3 py-1.5 text-white focus:outline-none text-[11px]"
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-zinc-500 font-sans">{t('brokerSettings.accountIdLabel')}</label>
-            <input
-              type="text"
-              placeholder={t('brokerSettings.accountIdPlaceholder')}
-              value={accountId}
-              onChange={(e) => {
-                setAccountId(e.target.value);
-                setTestResult(null);
-              }}
-              className="bg-zinc-900 border border-zinc-900 focus:border-zinc-800 rounded px-3 py-1.5 text-white focus:outline-none text-[11px]"
-            />
-          </div>
         </div>
 
         {/* Test Result Display */}
         {testResult && (
-          <div className={`p-2.5 rounded border text-[10.5px] leading-relaxed font-sans ${
+          <div className={`p-4 rounded-xl border text-[10.5px] leading-relaxed font-sans ${
             testResult.success
-              ? 'bg-emerald-950/20 border-emerald-900/30 text-emerald-400'
-              : 'bg-rose-950/20 border-rose-900/30 text-rose-400'
+              ? 'bg-success/10 border-success/20 text-success'
+              : 'bg-danger/10 border-danger/20 text-danger'
           }`}>
             <span className="font-mono font-bold block mb-0.5">
               {testResult.success ? `✓ ${t('brokerSettings.testSuccess')}` : `✗ ${t('brokerSettings.testError')}`}
@@ -291,7 +296,7 @@ export default function BrokerSettingsPage() {
             <button
               onClick={handleDelete}
               disabled={saving}
-              className="px-3 py-1.5 rounded bg-rose-950/30 hover:bg-rose-950/60 border border-rose-900/40 hover:border-rose-900 text-rose-400 transition-colors font-bold cursor-pointer disabled:opacity-40"
+              className="px-3 py-1.5 rounded-xl bg-danger/15 hover:bg-danger/25 border border-danger/30 hover:border-danger/55 text-danger transition-colors font-bold cursor-pointer disabled:opacity-40"
             >
               {t('brokerSettings.disconnectButton')}
             </button>
@@ -299,15 +304,15 @@ export default function BrokerSettingsPage() {
           <div className="flex gap-2 ml-auto">
             <button
               onClick={handleTestConnection}
-              disabled={testing || !apiKey || !secretKey || !accountId}
-              className="px-3 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 hover:border-zinc-700 text-zinc-300 font-bold transition-colors cursor-pointer disabled:opacity-40"
+              disabled={testing || !apiKey || !secretKey}
+              className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 font-bold transition-colors cursor-pointer disabled:opacity-40"
             >
               {testing ? t('brokerSettings.testing') : t('brokerSettings.testConnection')}
             </button>
             <button
               onClick={handleSave}
-              disabled={saving || !apiKey || !secretKey || !accountId}
-              className="px-3 py-1.5 rounded bg-[#00d287] hover:bg-[#00be7a] text-zinc-950 font-bold transition-colors cursor-pointer disabled:opacity-40"
+              disabled={saving || !apiKey || !secretKey}
+              className="px-3 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold transition-all cursor-pointer disabled:opacity-40"
             >
               {saving ? t('brokerSettings.saving') : t('brokerSettings.saveButton')}
             </button>

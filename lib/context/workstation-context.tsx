@@ -24,7 +24,6 @@ export interface AISignalLog {
   time: string;
 }
 
-// Ticker interface for client-side state
 export interface WorkstationTicker {
   symbol: string;
   name: string;
@@ -33,6 +32,17 @@ export interface WorkstationTicker {
   high: number;
   low: number;
   history: number[];
+  marketStatus?: 'OPEN' | 'CLOSE';
+  isIndex?: boolean;
+}
+
+export interface WorkstationIndex {
+  price: number;
+  change: number;
+  high?: number;
+  low?: number;
+  history?: number[];
+  marketStatus?: 'OPEN' | 'CLOSE';
 }
 
 interface WorkstationState {
@@ -50,6 +60,14 @@ interface WorkstationState {
   isHydrated: boolean;
   user: { id: string; email: string } | null;
   isApiConnected: boolean;
+  kospi: WorkstationIndex | null;
+  kosdaq: WorkstationIndex | null;
+  nasdaq: WorkstationIndex | null;
+  dji: WorkstationIndex | null;
+  sp500: WorkstationIndex | null;
+  usdKrw: WorkstationIndex | null;
+  btc: WorkstationIndex | null;
+  theme: 'light' | 'dark';
 }
 
 type WorkstationAction =
@@ -57,6 +75,7 @@ type WorkstationAction =
   | { type: 'SET_HYDRATED' }
   | { type: 'SELECT_SYMBOL'; payload: string }
   | { type: 'TICK' }
+  | { type: 'UPDATE_TICKER_PRICES'; payload: Record<string, { price: number; change: number; high: number; low: number; history?: number[]; marketStatus?: 'OPEN' | 'CLOSE' }> }
   | { type: 'ADD_TICKER'; payload: { symbol: string; name: string; price: number } }
   | { type: 'REMOVE_TICKER'; payload: string }
 
@@ -67,7 +86,8 @@ type WorkstationAction =
   | { type: 'SIGN_OUT' }
   | { type: 'SESSION_EXPIRE' }
   | { type: 'ADD_AI_SIGNAL'; payload: AISignalLog }
-  | { type: 'ADD_ORDER_LOG'; payload: { id: string; symbol: string; side: 'BUY' | 'SELL'; qty: number; price: number; time: string } };
+  | { type: 'ADD_ORDER_LOG'; payload: { id: string; symbol: string; side: 'BUY' | 'SELL'; qty: number; price: number; time: string } }
+  | { type: 'TOGGLE_THEME' };
 
 interface WorkstationContextType extends WorkstationState {
   setSelectedSymbol: (symbol: string) => void;
@@ -85,6 +105,7 @@ interface WorkstationContextType extends WorkstationState {
   handleSignOut: () => void;
   handleSessionExpire: () => void;
   reloadUserData: () => Promise<void>;
+  toggleTheme: () => void;
 }
 
 const WorkstationContext = createContext<WorkstationContextType | undefined>(undefined);
@@ -102,8 +123,16 @@ const defaultState: WorkstationState = {
   },
   toast: null,
   isHydrated: false,
-  user: process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true' ? null : { id: 'dev-user-123', email: 'trader@toss.im' },
+  user: null,
   isApiConnected: false,
+  kospi: null,
+  kosdaq: null,
+  nasdaq: null,
+  dji: null,
+  sp500: null,
+  usdKrw: null,
+  btc: null,
+  theme: 'dark',
 };
 
 // --- DATA SCHEMA VALIDATION HELPERS ---
@@ -237,13 +266,13 @@ function workstationReducer(state: WorkstationState, action: WorkstationAction):
       };
 
     case 'TICK': {
-      if (!state.isApiConnected) {
-        return state;
-      }
       const nextTickers = state.tickers.map((ticker) => {
-        const drift = (Math.random() - 0.5) * 0.006;
-        const currentPrice = ticker.price || 50000;
-        const newPrice = Math.round(currentPrice * (1 + drift));
+        const isInverse2X = ticker.symbol === '252670';
+        const drift = isInverse2X ? (Math.random() - 0.5) * 0.04 : (Math.random() - 0.5) * 0.006;
+        const currentPrice = ticker.price || (isInverse2X ? 72 : 50000);
+        const newPrice = isInverse2X 
+          ? Math.max(50, Math.min(150, Math.round(currentPrice * (1 + drift))))
+          : Math.round(currentPrice * (1 + drift));
         const basePrice = ticker.history[0] || newPrice;
         const newChange = Number(((newPrice - basePrice) / basePrice * 100).toFixed(2));
         const newHigh = Math.max(ticker.high || newPrice, newPrice);
@@ -263,6 +292,103 @@ function workstationReducer(state: WorkstationState, action: WorkstationAction):
       return {
         ...state,
         tickers: nextTickers,
+      };
+    }
+
+    case 'UPDATE_TICKER_PRICES': {
+      const pricesMap = action.payload;
+      const nextTickers = state.tickers.map((ticker) => {
+        const live = pricesMap[ticker.symbol];
+        if (!live) return ticker;
+
+        const newHistory = ticker.history.length > 0
+          ? [...ticker.history.slice(1), live.price]
+          : Array(7).fill(live.price);
+
+        return {
+          ...ticker,
+          price: live.price,
+          change: live.change,
+          high: live.high,
+          low: live.low,
+          history: newHistory,
+          marketStatus: live.marketStatus,
+        };
+      });
+
+      const kospi = pricesMap['KOSPI'] ? { 
+        price: pricesMap['KOSPI'].price, 
+        change: pricesMap['KOSPI'].change,
+        high: pricesMap['KOSPI'].high,
+        low: pricesMap['KOSPI'].low,
+        history: pricesMap['KOSPI'].history,
+        marketStatus: pricesMap['KOSPI'].marketStatus
+      } : state.kospi;
+      
+      const kosdaq = pricesMap['KOSDAQ'] ? { 
+        price: pricesMap['KOSDAQ'].price, 
+        change: pricesMap['KOSDAQ'].change,
+        high: pricesMap['KOSDAQ'].high,
+        low: pricesMap['KOSDAQ'].low,
+        history: pricesMap['KOSDAQ'].history,
+        marketStatus: pricesMap['KOSDAQ'].marketStatus
+      } : state.kosdaq;
+
+      const nasdaq = pricesMap['.IXIC'] ? { 
+        price: pricesMap['.IXIC'].price, 
+        change: pricesMap['.IXIC'].change,
+        high: pricesMap['.IXIC'].high,
+        low: pricesMap['.IXIC'].low,
+        history: pricesMap['.IXIC'].history,
+        marketStatus: pricesMap['.IXIC'].marketStatus
+      } : state.nasdaq;
+
+      const dji = pricesMap['.DJI'] ? { 
+        price: pricesMap['.DJI'].price, 
+        change: pricesMap['.DJI'].change,
+        high: pricesMap['.DJI'].high,
+        low: pricesMap['.DJI'].low,
+        history: pricesMap['.DJI'].history,
+        marketStatus: pricesMap['.DJI'].marketStatus
+      } : state.dji;
+
+      const sp500 = pricesMap['.INX'] ? { 
+        price: pricesMap['.INX'].price, 
+        change: pricesMap['.INX'].change,
+        high: pricesMap['.INX'].high,
+        low: pricesMap['.INX'].low,
+        history: pricesMap['.INX'].history,
+        marketStatus: pricesMap['.INX'].marketStatus
+      } : state.sp500;
+
+      const usdKrw = pricesMap['FX_USDKRW'] ? { 
+        price: pricesMap['FX_USDKRW'].price, 
+        change: pricesMap['FX_USDKRW'].change,
+        high: pricesMap['FX_USDKRW'].high,
+        low: pricesMap['FX_USDKRW'].low,
+        history: pricesMap['FX_USDKRW'].history,
+        marketStatus: pricesMap['FX_USDKRW'].marketStatus
+      } : state.usdKrw;
+
+      const btc = pricesMap['KRW-BTC'] ? { 
+        price: pricesMap['KRW-BTC'].price, 
+        change: pricesMap['KRW-BTC'].change,
+        high: pricesMap['KRW-BTC'].high,
+        low: pricesMap['KRW-BTC'].low,
+        history: pricesMap['KRW-BTC'].history,
+        marketStatus: pricesMap['KRW-BTC'].marketStatus
+      } : state.btc;
+
+      return {
+        ...state,
+        tickers: nextTickers,
+        kospi,
+        kosdaq,
+        nasdaq,
+        dji,
+        sp500,
+        usdKrw,
+        btc
       };
     }
 
@@ -384,6 +510,12 @@ function workstationReducer(state: WorkstationState, action: WorkstationAction):
       };
     }
 
+    case 'TOGGLE_THEME':
+      return {
+        ...state,
+        theme: state.theme === 'light' ? 'dark' : 'light',
+      };
+
     default:
       return state;
   }
@@ -488,103 +620,176 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
 
   // --- DATABASE HYDRATION FUNCTION ---
   const loadUserData = useCallback(async () => {
-    if (!supabase || !state.user) {
+    const authEnabled = process.env.NEXT_PUBLIC_AUTH_ENABLED === 'true';
+    if (authEnabled && (!supabase || !state.user)) {
       return;
     }
     try {
-      const userId = state.user.id;
+      const userId = state.user?.id || 'dev-user-123';
+      let hasCreds = false;
 
-      // 0. Check API Credentials configuration
-      const { data: creds, error: credsErr } = await supabase
-        .from('api_credentials')
-        .select('user_id')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      const hasCreds = !!creds && !credsErr;
-
-      // 1. Fetch or Initialize Portfolio
-      let cash = 0;
-      if (hasCreds) {
-        const { data: portfolioData, error: portfolioErr } = await supabase
-          .from('portfolio')
-          .select('cash_balance')
+      if (!authEnabled || !supabase) {
+        try {
+          const res = await fetch('/api/credentials');
+          const data = await res.json();
+          hasCreds = !!(res.ok && data.exists);
+        } catch (err) {
+          console.error('Failed to load local credentials status:', err);
+        }
+      } else {
+        // 0. Check API Credentials configuration
+        const { data: creds, error: credsErr } = await supabase
+          .from('api_credentials')
+          .select('user_id')
           .eq('user_id', userId)
           .maybeSingle();
 
-        if (portfolioErr) {
-          console.error('Error fetching user portfolio from database:', portfolioErr);
-        } else if (!portfolioData) {
-          let initialBalance = 0;
+        hasCreds = !!creds && !credsErr;
+      }
+
+      // 1. Fetch or Initialize Portfolio
+      let cash = 0;
+      let positionsList: Position[] = [];
+
+      if (hasCreds) {
+        if (!authEnabled || !supabase) {
+          // Local development fallback: fetch actual broker account balance and holdings via proxy
           try {
-            const token = 'dev-token-123';
-            const { data: { session } } = await supabase.auth.getSession();
-            const bearer = session?.access_token || token;
-            
             const response = await fetch('/api/toss-proxy', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${bearer}`
+                'Authorization': 'Bearer dev-token-123'
               },
-              body: JSON.stringify({ method: 'GET', path: '/v1/account/balance' })
+              body: JSON.stringify({ method: 'GET', path: '/api/v1/buying-power?currency=KRW' })
             });
             const data = await response.json();
             if (response.ok && data && !data.error) {
-              initialBalance = Number(data.cash_balance) || 0;
+              cash = Number(data.result?.cashBuyingPower) || 0;
             }
           } catch (fetchErr) {
             console.error('Failed to fetch actual broker account balance for initialization:', fetchErr);
           }
 
-          const { error: insertErr } = await supabase
-            .from('portfolio')
-            .insert({ user_id: userId, cash_balance: initialBalance });
-          if (insertErr) console.error('Error initializing user portfolio:', insertErr);
-          cash = initialBalance;
+          try {
+            const response = await fetch('/api/toss-proxy', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer dev-token-123'
+              },
+              body: JSON.stringify({ method: 'GET', path: '/api/v1/holdings' })
+            });
+            const data = await response.json();
+            if (response.ok && data && !data.error) {
+              const items = data.result?.items || [];
+              positionsList = items.map((p: { symbol: string; quantity: string | number; averagePurchasePrice: string | number }, idx: number) => ({
+                id: `pos-${idx}-${p.symbol}`,
+                symbol: p.symbol,
+                qty: Number(p.quantity) || 0,
+                avgBuyPrice: Number(p.averagePurchasePrice) || 0,
+                currentPrice: Number(p.averagePurchasePrice) || 0
+              }));
+            }
+          } catch (fetchErr) {
+            console.error('Failed to fetch actual holdings:', fetchErr);
+          }
         } else {
-          cash = Number(portfolioData.cash_balance);
-        }
-      }
+          const { data: portfolioData, error: portfolioErr } = await supabase
+            .from('portfolio')
+            .select('cash_balance')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-      // 2. Fetch Active positions
-      let positionsList: Position[] = [];
-      if (hasCreds) {
-        const { data: positionsData, error: positionsErr } = await supabase
-          .from('positions')
-          .select('id, symbol, qty, avg_buy_price')
-          .eq('user_id', userId);
+          if (portfolioErr) {
+            console.error('Error fetching user portfolio from database:', portfolioErr);
+          } else if (!portfolioData) {
+            let initialBalance = 0;
+            try {
+              const token = 'dev-token-123';
+              const { data: { session } } = await supabase.auth.getSession();
+              const bearer = session?.access_token || token;
+              
+              const response = await fetch('/api/toss-proxy', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${bearer}`
+                },
+                body: JSON.stringify({ method: 'GET', path: '/api/v1/buying-power?currency=KRW' })
+              });
+              const data = await response.json();
+              if (response.ok && data && !data.error) {
+                initialBalance = Number(data.result?.cashBuyingPower) || 0;
+              }
+            } catch (fetchErr) {
+              console.error('Failed to fetch actual broker account balance for initialization:', fetchErr);
+            }
 
-        if (positionsErr) {
-          console.error('Error fetching user positions from database:', positionsErr);
-        } else if (positionsData) {
-          positionsList = positionsData.map((p) => {
-            return {
+            const { error: insertErr } = await supabase
+              .from('portfolio')
+              .insert({ user_id: userId, cash_balance: initialBalance });
+            if (insertErr) console.error('Error initializing user portfolio:', insertErr);
+            cash = initialBalance;
+          } else {
+            cash = Number(portfolioData.cash_balance);
+          }
+
+          // Fetch Active positions via Supabase
+          const { data: positionsData, error: positionsErr } = await supabase
+            .from('positions')
+            .select('id, symbol, qty, avg_buy_price')
+            .eq('user_id', userId);
+
+          if (positionsErr) {
+            console.error('Error fetching user positions from database:', positionsErr);
+          } else if (positionsData) {
+            positionsList = positionsData.map((p) => ({
               id: p.id,
               symbol: p.symbol,
               qty: p.qty,
               avgBuyPrice: p.avg_buy_price,
-              currentPrice: p.avg_buy_price, // fallback
-            };
-          });
+              currentPrice: p.avg_buy_price,
+            }));
+          }
         }
       }
 
       // 3. Fetch or Initialize Watchlist
-      const { data: watchlistData, error: watchlistErr } = await supabase
-        .from('watchlist')
-        .select('symbol, name')
-        .eq('user_id', userId);
+      let watchlistData: Array<{ symbol: string; name: string }> = [];
+      let watchlistErr: { message: string } | null = null;
+
+      if (authEnabled && supabase) {
+        const { data, error } = await supabase
+          .from('watchlist')
+          .select('symbol, name')
+          .eq('user_id', userId);
+        watchlistData = data || [];
+        watchlistErr = error;
+      } else {
+        const savedWatchlist = localStorage.getItem('toss_trading_watchlist');
+        if (savedWatchlist) {
+          try {
+            watchlistData = JSON.parse(savedWatchlist);
+          } catch {
+            watchlistData = [];
+          }
+        }
+        if (!watchlistData || watchlistData.length === 0) {
+          watchlistData = [
+            { symbol: '005930', name: '삼성전자' },
+            { symbol: '000660', name: 'SK하이닉스' },
+            { symbol: '252670', name: 'KODEX 200선물인버스2X' },
+            { symbol: '035420', name: 'NAVER' }
+          ];
+        }
+      }
 
       let nextTickers: WorkstationTicker[] = [];
       if (watchlistErr) {
         console.error('Error fetching user watchlist from database:', watchlistErr);
         nextTickers = tickersRef.current;
-      } else if (!watchlistData || watchlistData.length === 0) {
-        // Enforce fail-closed watchlist (do not initialize default tickers)
-        nextTickers = [];
       } else {
-        // Build new tickers list based on database watchlist
         nextTickers = watchlistData.map((w) => {
           const existing = tickersRef.current.find((t) => t.symbol === w.symbol);
           if (existing) {
@@ -593,47 +798,60 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
             }
             return existing;
           }
-          const price = hasCreds ? Math.round(50000 + Math.random() * 200000) : 0;
+          const isInverse2X = w.symbol === '252670';
+          const price = isInverse2X ? 72 : (hasCreds ? Math.round(50000 + Math.random() * 200000) : 0);
+          const change = isInverse2X ? -2.70 : 0.0;
           return {
             symbol: w.symbol,
             name: w.name,
             price,
-            change: 0.0,
-            high: price,
-            low: price,
-            history: price > 0 ? Array(7).fill(price) : [],
+            change,
+            high: isInverse2X ? 74 : price,
+            low: isInverse2X ? 70 : price,
+            history: price > 0 ? (isInverse2X ? [74, 73, 75, 74, 73, 72, 72] : Array(7).fill(price)) : [],
           };
         });
       }
 
-      // 4. Fetch recent orders log from Supabase
+      // 4. Fetch recent orders log
       let ordersList: OrderLog[] = [];
       if (hasCreds) {
-        const { data: ordersData, error: ordersErr } = await supabase
-          .from('orders_log')
-          .select('id, symbol, side, type, qty, price, status, created_at')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(100);
+        if (authEnabled && supabase) {
+          const { data: ordersData, error: ordersErr } = await supabase
+            .from('orders_log')
+            .select('id, symbol, side, type, qty, price, status, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(100);
 
-        if (ordersErr) {
-          console.error('Error fetching user orders from database:', ordersErr);
-        } else if (ordersData) {
-          ordersList = ordersData.map((o) => {
-            const time = o.created_at
-              ? new Date(o.created_at).toTimeString().split(' ')[0]
-              : new Date().toTimeString().split(' ')[0];
-            return {
-              id: o.id,
-              symbol: o.symbol,
-              side: o.side as 'BUY' | 'SELL',
-              type: o.type as 'MARKET' | 'LIMIT',
-              qty: o.qty,
-              price: o.price,
-              status: o.status as 'PENDING' | 'FILLED' | 'REJECTED' | 'CANCELLED',
-              time,
-            };
-          });
+          if (ordersErr) {
+            console.error('Error fetching user orders from database:', ordersErr);
+          } else if (ordersData) {
+            ordersList = ordersData.map((o) => {
+              const time = o.created_at
+                ? new Date(o.created_at).toTimeString().split(' ')[0]
+                : new Date().toTimeString().split(' ')[0];
+              return {
+                id: o.id,
+                symbol: o.symbol,
+                side: o.side as 'BUY' | 'SELL',
+                type: o.type as 'MARKET' | 'LIMIT',
+                qty: o.qty,
+                price: o.price,
+                status: o.status as 'PENDING' | 'FILLED' | 'REJECTED' | 'CANCELLED',
+                time,
+              };
+            });
+          }
+        } else {
+          const savedOrders = localStorage.getItem('toss_trading_orders');
+          if (savedOrders) {
+            try {
+              ordersList = JSON.parse(savedOrders);
+            } catch {
+              ordersList = [];
+            }
+          }
         }
       }
 
@@ -648,7 +866,7 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         },
       });
     } catch (err) {
-      console.error('Failed to execute Supabase database load:', err);
+      console.error('Failed to execute database hydration load:', err);
       dispatch({
         type: 'HYDRATE',
         payload: {
@@ -795,6 +1013,10 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
     }
   }, []);
 
+  const toggleTheme = useCallback(() => {
+    dispatch({ type: 'TOGGLE_THEME' });
+  }, []);
+
   // --- SUPABASE AUTH STATE SYNCHRONIZATION ---
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true' || !supabase) {
@@ -850,6 +1072,8 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
       const savedTickers = localStorage.getItem('toss_trading_tickers');
       const savedStrategies = localStorage.getItem('toss_trading_strategies');
       const savedOrders = localStorage.getItem('toss_trading_orders');
+      const savedTheme = localStorage.getItem('toss_trading_theme');
+      const savedUser = localStorage.getItem('toss_trading_user');
 
       const hydratePayload: Partial<WorkstationState> = {};
 
@@ -873,6 +1097,14 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         const orders = validateOrdersLog(savedOrders);
         if (orders !== null) hydratePayload.ordersLog = orders;
       }
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        hydratePayload.theme = savedTheme;
+      }
+      if (savedUser !== null) {
+        try {
+          hydratePayload.user = JSON.parse(savedUser);
+        } catch {}
+      }
 
       dispatch({ type: 'HYDRATE', payload: hydratePayload });
     } catch (err) {
@@ -880,6 +1112,22 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
       dispatch({ type: 'SET_HYDRATED' });
     }
   }, []);
+
+  // --- SYNC THEME WITH DOCUMENT CLASS & LOCALSTORAGE ---
+  useEffect(() => {
+    if (state.theme === 'light') {
+      document.documentElement.classList.add('light');
+    } else {
+      document.documentElement.classList.remove('light');
+    }
+    if (state.isHydrated) {
+      try {
+        localStorage.setItem('toss_trading_theme', state.theme);
+      } catch (err) {
+        console.error('Error saving theme to localStorage:', err);
+      }
+    }
+  }, [state.theme, state.isHydrated]);
 
   // --- SAVE STATE BACK TO LOCAL STORAGE ON MUTATIONS ---
   useEffect(() => {
@@ -890,20 +1138,84 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         localStorage.setItem('toss_trading_tickers', JSON.stringify(state.tickers));
         localStorage.setItem('toss_trading_strategies', JSON.stringify(state.strategies));
         localStorage.setItem('toss_trading_orders', JSON.stringify(state.ordersLog));
+        if (state.user) {
+          localStorage.setItem('toss_trading_user', JSON.stringify(state.user));
+        } else {
+          localStorage.removeItem('toss_trading_user');
+        }
       } catch (err) {
         console.error('Error saving state changes to localStorage:', err);
       }
     }
-  }, [state.cashBalance, state.positions, state.tickers, state.strategies, state.ordersLog, state.isHydrated]);
+  }, [state.cashBalance, state.positions, state.tickers, state.strategies, state.ordersLog, state.user, state.isHydrated]);
 
-  // --- REAL-TIME TICKER DRIFT BROADCAST ---
+  // --- REAL-TIME MARKET PRICE POLLING & DRIFT ---
+  // Poll KOSPI and KOSDAQ indices regardless of API connection status
   useEffect(() => {
-    const interval = setInterval(() => {
-      dispatch({ type: 'TICK' });
-    }, 2500);
+    let active = true;
+    const fetchIndices = async () => {
+      try {
+        const res = await fetch('/api/market/prices?symbols=KOSPI,KOSDAQ,.IXIC,.DJI,.INX,FX_USDKRW,KRW-BTC');
+        if (!res.ok) {
+          console.warn(`[Index Polling] Failed with HTTP status ${res.status}`);
+          return;
+        }
+        const data = await res.json();
+        if (active && data && data.prices) {
+          dispatch({ type: 'UPDATE_TICKER_PRICES', payload: data.prices });
+        }
+      } catch (err: unknown) {
+        if (active) {
+          console.warn('[Index Polling] Network or connection error:', (err as Error).message || err);
+        }
+      }
+    };
 
-    return () => clearInterval(interval);
+    fetchIndices();
+    const interval = setInterval(fetchIndices, 1000); // Poll indices every 1 second
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []);
+
+  // Poll watchlist tickers if connected, drift if not
+  const watchlistSymbolsStr = state.tickers.map((t) => t.symbol).join(',');
+  useEffect(() => {
+    if (state.isApiConnected) {
+      let active = true;
+      const fetchPrices = async () => {
+        try {
+          if (!watchlistSymbolsStr) return;
+          const res = await fetch(`/api/market/prices?symbols=${watchlistSymbolsStr}`);
+          if (!res.ok) {
+            console.warn(`[Price Polling] Failed with HTTP status ${res.status}`);
+            return;
+          }
+          const data = await res.json();
+          if (active && data && data.prices) {
+            dispatch({ type: 'UPDATE_TICKER_PRICES', payload: data.prices });
+          }
+        } catch (err: unknown) {
+          if (active) {
+            console.warn('[Price Polling] Network or connection error:', (err as Error).message || err);
+          }
+        }
+      };
+
+      fetchPrices();
+      const interval = setInterval(fetchPrices, 1000); // Poll watchlist tickers every 1 second
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    } else {
+      const interval = setInterval(() => {
+        dispatch({ type: 'TICK' });
+      }, 1000); // Drift every 1 second
+      return () => clearInterval(interval);
+    }
+  }, [state.isApiConnected, watchlistSymbolsStr]);
 
 
 
@@ -923,6 +1235,7 @@ export function WorkstationProvider({ children }: { children: React.ReactNode })
         handleSignOut,
         handleSessionExpire,
         reloadUserData: loadUserData,
+        toggleTheme,
       }}
     >
       {children}

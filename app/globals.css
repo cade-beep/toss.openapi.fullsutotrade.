@@ -1,26 +1,128 @@
 @import "tailwindcss";
 
+/* ============================================================
+   LAYERED SURFACE DESIGN — Color Token System
+   App Background  : #0B0F14
+   Panel Surface   : #111827
+   Card Surface    : #151B23
+   Hover Surface   : #1C2430
+   Accent Green    : #00D67A  (AI Cockpit glow)
+   Accent Red hint : used for order panel accents
+   ============================================================ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Dark Theme — Layered Surface */
+  --bg-app:      #0B0F14;
+  --bg-panel:    #111827;
+  --bg-card:     #151B23;
+  --bg-hover:    #1C2430;
+  --bg-elevated: #1E2535;
+
+  --accent-ai:    #00D67A;
+  --accent-order: #FF453A;
+
+  --border-subtle:  rgba(255, 255, 255, 0.045);
+  --border-muted:   rgba(255, 255, 255, 0.07);
+
+  --text-primary:   #E8EDF5;
+  --text-secondary: #8E9AAF;
+  --text-muted:     #5A6478;
+  --text-dimmed:    #3D4659;
+
+  --bg-btn-secondary:       #1C2430;
+  --bg-btn-secondary-hover: #243044;
+  --border-btn-secondary:   rgba(255,255,255,0.07);
+
+  /* Aliases for Tailwind @theme mapping */
+  --background: #0B0F14;
+  --foreground:  #E8EDF5;
+
+  /* Legacy panel var — keep for any remnant usage */
+  --border-panel:       var(--border-subtle);
+  --border-panel-muted: var(--border-muted);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+/* ── Light mode overrides ── */
+.light {
+  --bg-app:   #F7F9FC;
+  --bg-panel: #FFFFFF;
+  --bg-card:  #F2F5FA;
+  --bg-hover: #E8EDF5;
+
+  --border-subtle: #E2E8F0;
+  --border-muted:  #CBD5E0;
+
+  --text-primary:   #1A2236;
+  --text-secondary: #4E5968;
+  --text-muted:     #8B95A1;
+  --text-dimmed:    #B0B8C1;
+
+  --bg-btn-secondary:       #F2F4F6;
+  --bg-btn-secondary-hover: #E5E8EB;
+  --border-btn-secondary:   #E5E8EB;
+
+  --background: #F7F9FC;
+  --foreground:  #1A2236;
+
+  --border-panel:       var(--border-subtle);
+  --border-panel-muted: var(--border-muted);
+}
+
+/* ── Tailwind v4 @theme token map ── */
+@theme {
+  /* Static semantic colors */
+  --color-primary: #0064FF;
+  --color-success: #00C853;
+  --color-danger:  #FF3B30;
+
+  /* Named surface tokens for use as bg-surface-* */
+  --color-surface-app:      #0B0F14;
+  --color-surface-panel:    #111827;
+  --color-surface-card:     #151B23;
+  --color-surface-hover:    #1C2430;
+  --color-surface-elevated: #1E2535;
+
+  --color-accent-ai:    #00D67A;
+  --color-accent-order: #FF453A;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base styles ── */
+body {
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+/* ── Surface utility classes ── */
+.surface-panel    { background-color: var(--bg-panel); }
+.surface-card     { background-color: var(--bg-card); }
+.surface-hover    { background-color: var(--bg-hover); }
+.surface-elevated { background-color: var(--bg-elevated); }
+
+/* ── AI Cockpit green glow ── */
+.glow-ai {
+  box-shadow: 0 0 0 1px rgba(0, 214, 122, 0.08),
+              0 8px 24px rgba(0, 0, 0, 0.4),
+              inset 0 0 40px rgba(0, 214, 122, 0.025);
 }
+
+/* ── Order panel red accent ── */
+.glow-order {
+  box-shadow: 0 0 0 1px rgba(255, 69, 58, 0.08),
+              0 8px 24px rgba(0, 0, 0, 0.4),
+              inset 0 0 40px rgba(255, 69, 58, 0.02);
+}
+
+/* ── Standard card shadow ── */
+.card-shadow {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35),
+              0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Scrollbar ── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

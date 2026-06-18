@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { encryptSecret } from '../toss-proxy/route';
+import { getLocalCredentials, saveLocalCredentials, deleteLocalCredentials } from '../../../services/trading/local-credentials';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+function isSupabaseConfigured() {
+  return supabaseUrl && !supabaseUrl.includes('your-project-id') && supabaseKey && !supabaseKey.includes('dummy');
+}
+
 async function getAuthenticatedUser(request: NextRequest) {
+  if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true') {
+    return { id: 'dev-user-123', email: 'trader@toss.im' };
+  }
+
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return null;
   }
 
   const token = authHeader.split(' ')[1];
+  if (!isSupabaseConfigured()) {
+    return { id: 'dev-user-123', email: 'trader@toss.im' };
+  }
+
   const supabase = createClient(supabaseUrl, supabaseKey);
   const { data: authData, error } = await supabase.auth.getUser(token);
 
@@ -27,6 +40,18 @@ export async function GET(request: NextRequest) {
     const user = await getAuthenticatedUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true' || !isSupabaseConfigured()) {
+      const creds = getLocalCredentials();
+      if (!creds) {
+        return NextResponse.json({ exists: false }, { status: 200 });
+      }
+      return NextResponse.json({
+        exists: true,
+        accountId: creds.account_id || '',
+        isSimulation: creds.is_simulation
+      }, { status: 200 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -120,6 +145,21 @@ export async function POST(request: NextRequest) {
     const encryptedApiKey = encryptSecret(apiKey);
     const encryptedSecretKey = encryptSecret(secretKey);
 
+    if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true' || !isSupabaseConfigured()) {
+      const success = saveLocalCredentials({
+        user_id: user.id,
+        encrypted_api_key: encryptedApiKey,
+        encrypted_secret_key: encryptedSecretKey,
+        account_id: finalAccountId,
+        is_simulation: false,
+        updated_at: new Date().toISOString()
+      });
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to write credentials locally.' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true }, { status: 200 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { error } = await supabase
       .from('api_credentials')
@@ -148,6 +188,14 @@ export async function DELETE(request: NextRequest) {
     const user = await getAuthenticatedUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true' || !isSupabaseConfigured()) {
+      const success = deleteLocalCredentials();
+      if (!success) {
+        return NextResponse.json({ error: 'Failed to delete local credentials.' }, { status: 500 });
+      }
+      return NextResponse.json({ success: true }, { status: 200 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);

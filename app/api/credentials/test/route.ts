@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { tossTokenCache } from '@/services/trading/toss-token-cache';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { apiKey, secretKey, accountId } = body;
 
-    if (!apiKey || !secretKey || !accountId) {
-      return NextResponse.json({ error: 'Validation Error: API Key, Secret Key, and Account ID are all required.' }, { status: 400 });
+    if (!apiKey || !secretKey) {
+      return NextResponse.json({ error: 'Validation Error: API Key and Secret Key are required.' }, { status: 400 });
     }
 
     if (apiKey.length < 10) {
@@ -19,30 +19,83 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'ConfigurationError: TOSS_API_URL environment variable is not configured.' }, { status: 500 });
     }
 
-    // Live connection test via Toss API Balance endpoint
-    const timestamp = Date.now().toString();
-    const rawPayloadString = '';
-    const message = `GET/v1/account/balance${timestamp}${rawPayloadString}`;
-    const signature = crypto.createHmac('sha256', secretKey).update(message).digest('hex');
+    // 1. Get OAuth2 Token
+    let accessToken = '';
+    try {
+      accessToken = await tossTokenCache.getToken(apiKey, secretKey);
+    } catch (err: unknown) {
+      return NextResponse.json({ error: `ConnectionError: OAuth2 token retrieval failed: ${(err as Error).message}` }, { status: 400 });
+    }
 
+    // 2. Discover Account Sequence if not provided
+    let finalAccountId = accountId || '';
+    if (!finalAccountId) {
+      try {
+        const accountsRes = await fetch(`${tossApiUrl}/api/v1/accounts`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+
+        if (!accountsRes.ok) {
+          const errBody = await accountsRes.json().catch(() => ({}));
+          throw new Error(errBody.error?.message || errBody.error || `HTTP ${accountsRes.status}`);
+        }
+
+        const accountsData = await accountsRes.json();
+        const accountsList = accountsData.result || [];
+        const brokerageAccount = accountsList.find((acc: { accountType: string; accountSeq?: string | number }) => acc.accountType === 'BROKERAGE');
+
+        if (!brokerageAccount) {
+          return NextResponse.json({ error: 'ConfigurationError: No brokerage account found during discovery.' }, { status: 404 });
+        }
+
+        const discoveredSeq = brokerageAccount.accountSeq;
+        if (discoveredSeq === undefined || discoveredSeq === null) {
+          return NextResponse.json({ error: 'ConfigurationError: Discovered brokerage account is missing accountSeq.' }, { status: 500 });
+        }
+
+        finalAccountId = String(discoveredSeq);
+      } catch (err: unknown) {
+        return NextResponse.json({ error: `ConnectionError: Automatic account discovery failed: ${(err as Error).message}` }, { status: 400 });
+      }
+    }
+
+    // 3. Verify connection using `/api/v1/buying-power` (the actual buying power endpoint)
     const headers = {
       'Content-Type': 'application/json',
-      'X-TOSS-API-KEY': apiKey,
-      'X-TOSS-SIGNATURE': signature,
-      'X-TOSS-TIMESTAMP': timestamp,
+      'Authorization': `Bearer ${accessToken}`,
+      'X-Tossinvest-Account': finalAccountId
     };
 
-    const res = await fetch(`${tossApiUrl}/v1/account/balance`, {
+    const res = await fetch(`${tossApiUrl}/api/v1/buying-power?currency=KRW`, {
       method: 'GET',
       headers,
     });
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      return NextResponse.json({ error: `ConnectionError: ${errorData.error || `Broker returned HTTP ${res.status}`}` }, { status: 400 });
+      let errMsg = '';
+      if (errorData.error) {
+        if (typeof errorData.error === 'object') {
+          errMsg = errorData.error.message || JSON.stringify(errorData.error);
+        } else {
+          errMsg = String(errorData.error);
+        }
+      } else if (errorData.message) {
+        errMsg = String(errorData.message);
+      } else {
+        errMsg = `Broker returned HTTP ${res.status}`;
+      }
+      return NextResponse.json({ error: `ConnectionError: ${errMsg}` }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    return NextResponse.json({
+      success: true,
+      message: 'Connection Verified successfully!',
+      accountId: finalAccountId
+    }, { status: 200 });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: `ConnectionError: Failed to reach broker API: ${errorMsg}` }, { status: 400 });

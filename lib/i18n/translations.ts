@@ -28,11 +28,18 @@ export const translations = {
       apiStatus: "API 상태",
       connected: "연결됨",
       disconnected: "미연결",
-      mode: "투자 모드"
+      mode: "투자 모드",
+      sysTime: "시스템 시간",
+      logout: "로그아웃"
     },
     footer: {
       copyright: "© 2026 Toss Auto Trading. All rights reserved.",
-      disclaimer: "경고: 본 프로그램은 투자 자문이나 권유가 아닌 자동매매 보조 도구입니다. 모든 투자 결정 및 거래에 따른 책임은 사용자 본인에게 있습니다. 과거의 성과가 미래의 수익을 보장하지 않습니다."
+      disclaimer: "경고: 본 프로그램은 투자 자문이나 권유가 아닌 자동매매 보조 도구입니다. 모든 투자 결정 및 거래에 따른 책임은 사용자 본인에게 있습니다. 과거의 성과가 미래의 수익을 보장하지 않습니다.",
+      safetyLogs: "시스템 활동 및 안전 로그",
+      logInit: "시스템 초기화 중...",
+      logWarning: "경고: 브로커 API 인증 정보가 설정되지 않았습니다. 워크스테이션이 잠겼습니다.",
+      logCritical: "심각: 실거래 및 주문 체결 기능이 비활성화되었습니다. 세이프가드 모드가 작동 중입니다.",
+      logInstructions: "거래 권한을 활성화하려면 설정에서 토스 API 인증 정보를 구성하십시오."
     },
     portfolio: {
       title: "자산 현황",
@@ -41,7 +48,8 @@ export const translations = {
       unrealizedPnL: "평가손익",
       returnRate: "수익률",
       purchasingPower: "주문가능금액",
-      apiRequired: "자산 정보를 보려면 API 연결이 필요합니다."
+      apiRequired: "자산 정보를 보려면 API 연결이 필요합니다.",
+      locked: "자산 현황 잠김"
     },
     orderTicket: {
       title: "주문",
@@ -62,7 +70,11 @@ export const translations = {
       validationLimits: "주문 한도를 초과했습니다.",
       orderSuccess: "주문이 성공적으로 접수되었습니다.",
       orderFail: "주문 접수에 실패했습니다.",
-      apiRequired: "주문을 접수하려면 API 연결이 필요합니다."
+      apiRequired: "주문을 접수하려면 API 연결이 필요합니다.",
+      tradingDeactivated: "거래 기능 비활성화됨",
+      typeLabel: "구분",
+      commissionLabel: "수수료(Commission)",
+      commissionValue: "{val} (토스 웹프록시)"
     },
     positions: {
       title: "보유잔고",
@@ -85,7 +97,10 @@ export const translations = {
       ledgerStatus: "상태",
       ledgerMsg: "오류 메시지 / 상태",
       emptyPositions: "보유한 주식이 없습니다.",
-      apiRequired: "보유잔고 및 주문 내역을 보려면 API 연결이 필요합니다."
+      apiRequired: "보유잔고 및 주문 내역을 보려면 API 연결이 필요합니다.",
+      apiNotConnected: "토스 API 미연결",
+      holdingsCount: "{count}개 보유",
+      sharesUnit: "주"
     },
     watchlist: {
       title: "관심종목",
@@ -97,7 +112,9 @@ export const translations = {
       addSymbol: "추가",
       removeSymbol: "삭제",
       emptyWatchlist: "관심종목이 없습니다. 새로운 종목코드를 추가해 보세요.",
-      apiRequired: "관심종목 및 시장가를 조회하려면 API 연결이 필요합니다."
+      apiRequired: "관심종목 및 시장가를 조회하려면 API 연결이 필요합니다.",
+      symbolsCount: "{count}개 종목",
+      marketDataFeed: "시장 시세 피드"
     },
     aiStrategies: {
       title: "AI 매매 전략",
@@ -112,7 +129,14 @@ export const translations = {
       inactiveCount: "개의 전략 대기 중",
       runCrossover: "이동평균 크로스오버 (MA Crossover)",
       meanReversion: "RSI 평균회귀 전략 (Mean Reversion)",
-      apiRequired: "AI 전략을 연동하려면 API 연결이 필요합니다."
+      apiRequired: "AI 전략을 연동하려면 API 연결이 필요합니다.",
+      telemetryOn: "텔레메트리 켜짐",
+      maParams: "단기 {fast} / 장기 {slow} EMA",
+      rsiParams: "과매도 {oversold} / 과매수 {overbought}",
+      signalsStream: "AI 시그널 스트림",
+      noLiveData: "실시간 전략 데이터 없음",
+      noSignals: "포착된 매매 신호가 없습니다. 봇 엔진을 활성화하여 텔레메트리 로그를 시작하세요.",
+      confidence: "신뢰도:"
     },
     dashboard: {
       brokerConnected: "브로커 연결 완료",
@@ -201,7 +225,23 @@ export const translations = {
       tradingDays: "{days} 영업일",
       noBacktestTitle: "활성화된 백테스트 시뮬레이션이 없습니다.",
       noBacktestDesc: "기간 설정 및 변수를 조정하여 백테스트를 실행하십시오.",
-      executionsCount: "{count} 건 체결"
+      executionsCount: "{count} 건 체결",
+      maxLabel: "최대:",
+      minLabel: "최소:"
+    },
+    chart: {
+      stockTitle: "종목 차트",
+      indexTitle: "시장 지수",
+      price: "현재가",
+      high: "고가",
+      low: "저가",
+      change: "대비",
+      loading: "데이터 로딩 중...",
+      apiRequired: "실시간 주식 차트와 호가 데이터를 보려면 API 연결이 필요합니다.",
+      dataRequired: "실시간 시세 데이터 필요",
+      curr: "현재가",
+      stock: "주식",
+      marketIndex: "시장 지수"
     }
   },
   en: {
@@ -231,11 +271,18 @@ export const translations = {
       apiStatus: "API Connection",
       connected: "Connected",
       disconnected: "Disconnected",
-      mode: "Trading Mode"
+      mode: "Trading Mode",
+      sysTime: "SYS TIME",
+      logout: "Sign Out"
     },
     footer: {
       copyright: "© 2026 Toss Auto Trading. All rights reserved.",
-      disclaimer: "Disclaimer: This software is a trading utility tool and does not constitute financial advice. All investment choices and resulting risks are the sole responsibility of the user. Past performance does not guarantee future results."
+      disclaimer: "Disclaimer: This software is a trading utility tool and does not constitute financial advice. All investment choices and resulting risks are the sole responsibility of the user. Past performance does not guarantee future results.",
+      safetyLogs: "System Activity & Safety Logs",
+      logInit: "SYSTEM: Workstation initializing...",
+      logWarning: "WARNING: Broker API credentials not configured. Workstation locked.",
+      logCritical: "CRITICAL: Live trading and order execution disabled. Fail-closed mode active.",
+      logInstructions: "Please configure Toss API credentials in settings to authorize trading."
     },
     portfolio: {
       title: "Portfolio",
@@ -244,7 +291,8 @@ export const translations = {
       unrealizedPnL: "Unrealized PnL",
       returnRate: "Return Rate",
       purchasingPower: "Purchasing Power",
-      apiRequired: "API connection is required to view portfolio data."
+      apiRequired: "API connection is required to view portfolio data.",
+      locked: "Portfolio Locked"
     },
     orderTicket: {
       title: "Order Ticket",
@@ -265,7 +313,11 @@ export const translations = {
       validationLimits: "Order exceeds limit parameters.",
       orderSuccess: "Order submitted successfully.",
       orderFail: "Order placement failed.",
-      apiRequired: "API connection is required to place orders."
+      apiRequired: "API connection is required to place orders.",
+      tradingDeactivated: "Trading Deactivated",
+      typeLabel: "Type",
+      commissionLabel: "Commission",
+      commissionValue: "{val} (Toss Web-Proxy)"
     },
     positions: {
       title: "Active Positions",
@@ -288,7 +340,10 @@ export const translations = {
       ledgerStatus: "Status",
       ledgerMsg: "Message / Reason",
       emptyPositions: "No active positions held.",
-      apiRequired: "API connection is required to retrieve holdings and ledgers."
+      apiRequired: "API connection is required to retrieve holdings and ledgers.",
+      apiNotConnected: "Toss API Not Connected",
+      holdingsCount: "{count} holdings",
+      sharesUnit: " shares"
     },
     watchlist: {
       title: "Watchlist",
@@ -300,7 +355,9 @@ export const translations = {
       addSymbol: "Add",
       removeSymbol: "Remove",
       emptyWatchlist: "Watchlist is empty. Try adding a new ticker code.",
-      apiRequired: "API connection is required to fetch watchlist tickers."
+      apiRequired: "API connection is required to fetch watchlist tickers.",
+      symbolsCount: "{count} Symbols",
+      marketDataFeed: "Market Data Feed"
     },
     aiStrategies: {
       title: "AI Trading Strategies",
@@ -315,7 +372,14 @@ export const translations = {
       inactiveCount: "strategies idle",
       runCrossover: "MA Crossover Strategy",
       meanReversion: "RSI Mean Reversion Strategy",
-      apiRequired: "API connection is required to integrate AI strategies."
+      apiRequired: "API connection is required to integrate AI strategies.",
+      telemetryOn: "TELEMETRY ON",
+      maParams: "Fast {fast} / Slow {slow} EMA",
+      rsiParams: "Oversold {oversold} / Overbought {overbought}",
+      signalsStream: "AI Signals Stream",
+      noLiveData: "No Live Strategy Data Available",
+      noSignals: "No trade signals captured. Activate bot engines to begin telemetry log.",
+      confidence: "CONFIDENCE:"
     },
     dashboard: {
       brokerConnected: "Broker Connected",
@@ -404,7 +468,23 @@ export const translations = {
       tradingDays: "{days} trading days",
       noBacktestTitle: "No Active Backtest Simulation",
       noBacktestDesc: "Configure historical date bounds and parameter settings to trigger path analysis.",
-      executionsCount: "{count} executions"
+      executionsCount: "{count} executions",
+      maxLabel: "MAX:",
+      minLabel: "MIN:"
+    },
+    chart: {
+      stockTitle: "STOCK CHART",
+      indexTitle: "MARKET INDEX",
+      price: "PRICE",
+      high: "HIGH",
+      low: "LOW",
+      change: "CHANGE",
+      loading: "Loading data...",
+      apiRequired: "Connect your broker credentials to view live stock charts.",
+      dataRequired: "Live Market Data Required",
+      curr: "CURR",
+      stock: "STOCK",
+      marketIndex: "MARKET INDEX"
     }
   }
 };

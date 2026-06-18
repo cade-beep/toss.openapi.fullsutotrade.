@@ -2,12 +2,15 @@
 
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { backtester } from '@/services/ai/backtester';
 import { BacktestTrade } from '@/services/ai/metrics-calculator';
 import { parseCSV } from '@/lib/utils/csv-parser';
 import { useI18n } from '@/lib/i18n/i18n-context';
 
 export default function BacktestDashboardPage() {
+  notFound();
+
   const { t, formatCurrency } = useI18n();
   const [strategyName, setStrategyName] = useState<'Moving Average Crossover' | 'RSI Mean Reversion'>('Moving Average Crossover');
   const [symbol, setSymbol] = useState<string>('005930');
@@ -129,8 +132,9 @@ export default function BacktestDashboardPage() {
 
   // SVG Chart path calculators
   const renderSvgChart = useCallback(() => {
-    if (!results || results.equityCurve.length === 0) return null;
-    const curve = results.equityCurve;
+    const currentResults = results;
+    if (!currentResults || currentResults.equityCurve.length === 0) return null;
+    const curve = currentResults.equityCurve;
 
     const width = 640;
     const height = 220;
@@ -190,14 +194,14 @@ export default function BacktestDashboardPage() {
 
         {/* Labels */}
         <text x={padding} y={padding - 5} fill="#71717a" fontSize="8" className="font-mono">
-          MAX: {formatCurrency(maxVal)}
+          {t('backtest.maxLabel')} {formatCurrency(maxVal)}
         </text>
         <text x={padding} y={height - padding + 15} fill="#71717a" fontSize="8" className="font-mono">
-          MIN: {formatCurrency(minVal)}
+          {t('backtest.minLabel')} {formatCurrency(minVal)}
         </text>
       </svg>
     );
-  }, [results, initialCapital, formatCurrency]);
+  }, [results, initialCapital, formatCurrency, t]);
 
   return (
     <div className="min-h-screen w-screen bg-black text-zinc-300 font-mono text-xs p-6 select-none">
@@ -420,11 +424,11 @@ export default function BacktestDashboardPage() {
                 <div className="grid grid-cols-2 gap-4 mt-4 border-t border-zinc-900 pt-3 text-[10px]">
                   <div>
                     <span className="text-zinc-550 block uppercase">{t('backtest.simulatedTicks')}:</span>
-                    <span className="text-white font-bold">{t('backtest.tradingDays', { days: results.equityCurve.length })}</span>
+                    <span className="text-white font-bold">{t('backtest.tradingDays', { days: results?.equityCurve?.length || 0 })}</span>
                   </div>
                   <div className="text-right">
                     <span className="text-zinc-550 block uppercase">{t('backtest.finalNetValue')}:</span>
-                    <span className="text-[#00d287] font-bold">{formatCurrency(results.metrics.finalValue)}</span>
+                    <span className="text-[#00d287] font-bold">{formatCurrency(results?.metrics?.finalValue || 0)}</span>
                   </div>
                 </div>
               </div>
@@ -438,45 +442,45 @@ export default function BacktestDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3 select-none">
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
               <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.returnMetric')}</span>
-              <span className={`text-sm font-bold block ${results.metrics.totalReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {results.metrics.totalReturn >= 0 ? '+' : ''}
-                {results.metrics.totalReturn.toFixed(2)}%
+              <span className={`text-sm font-bold block ${(results?.metrics?.totalReturn ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {(results?.metrics?.totalReturn ?? 0) >= 0 ? '+' : ''}
+                {(results?.metrics?.totalReturn ?? 0).toFixed(2)}%
               </span>
             </div>
             
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
               <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.cagrMetric')}</span>
-              <span className={`text-sm font-bold block ${results.metrics.cagr >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {results.metrics.cagr >= 0 ? '+' : ''}
-                {(results.metrics.cagr * 100).toFixed(2)}%
+              <span className={`text-sm font-bold block ${(results?.metrics?.cagr ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {(results?.metrics?.cagr ?? 0) >= 0 ? '+' : ''}
+                {((results?.metrics?.cagr ?? 0) * 100).toFixed(2)}%
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
               <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.winRateMetric')}</span>
               <span className="text-sm font-bold text-white block">
-                {(results.metrics.winRate * 100).toFixed(1)}%
+                {((results?.metrics?.winRate ?? 0) * 100).toFixed(1)}%
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
               <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.profitFactorMetric')}</span>
               <span className="text-sm font-bold text-white block">
-                {results.metrics.profitFactor === Infinity ? '∞' : results.metrics.profitFactor.toFixed(2)}
+                {results?.metrics?.profitFactor === Infinity ? '∞' : (results?.metrics?.profitFactor ?? 0).toFixed(2)}
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
               <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.mddMetric')}</span>
               <span className="text-sm font-bold text-rose-400 block">
-                -{(results.metrics.maxDrawdown * 100).toFixed(2)}%
+                -{((results?.metrics?.maxDrawdown ?? 0) * 100).toFixed(2)}%
               </span>
             </div>
 
             <div className="bg-zinc-950 border border-zinc-900 rounded p-3 text-center">
               <span className="text-zinc-550 uppercase text-[9px] block mb-1">{t('backtest.sharpeMetric')}</span>
               <span className="text-sm font-bold text-white block">
-                {results.metrics.sharpeRatio.toFixed(2)}
+                {(results?.metrics?.sharpeRatio ?? 0).toFixed(2)}
               </span>
             </div>
           </div>
@@ -487,10 +491,10 @@ export default function BacktestDashboardPage() {
           <div className="bg-zinc-950 border border-zinc-900 rounded p-4">
             <h2 className="text-[10px] uppercase font-bold text-white tracking-wide border-b border-zinc-900 pb-1.5 mb-3 flex justify-between items-center">
               <span>{t('backtest.tradesTitle')}</span>
-              <span className="text-zinc-550 font-normal">{t('backtest.executionsCount', { count: results.trades.length })}</span>
+              <span className="text-zinc-550 font-normal">{t('backtest.executionsCount', { count: results?.trades?.length || 0 })}</span>
             </h2>
 
-            {results.trades.length === 0 ? (
+            {(results?.trades?.length || 0) === 0 ? (
               <div className="py-12 text-center text-zinc-550 font-sans">
                 {t('backtest.emptyTrades')}
               </div>
@@ -509,7 +513,7 @@ export default function BacktestDashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900/40 text-[11px]">
-                    {results.trades.map((trade, i) => (
+                    {results?.trades?.map((trade, i) => (
                       <tr key={i} className="hover:bg-zinc-900/10 transition-colors">
                         <td className="py-2 font-semibold text-zinc-400">{trade.date}</td>
                         <td className="py-2 font-bold text-white">{trade.symbol}</td>

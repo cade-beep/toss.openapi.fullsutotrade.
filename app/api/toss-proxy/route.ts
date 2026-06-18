@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { tossTokenCache } from '../../../services/trading/toss-token-cache';
+import { getLocalCredentials, saveLocalCredentials } from '../../../services/trading/local-credentials';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+function isSupabaseConfigured() {
+  return supabaseUrl && !supabaseUrl.includes('your-project-id') && supabaseKey && !supabaseKey.includes('dummy');
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,23 +20,27 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split(' ')[1];
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    let user;
+    let user: { id: string; email?: string } = { id: 'dev-user-123', email: 'trader@toss.im' };
 
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-    if (serviceRoleKey && token === serviceRoleKey) {
-      const workerUserId = request.headers.get('x-worker-user-id');
-      if (!workerUserId) {
-        return NextResponse.json({ error: 'Unauthorized: Missing x-worker-user-id header for worker request.' }, { status: 400 });
+    const useLocal = process.env.NEXT_PUBLIC_AUTH_ENABLED !== 'true' || !isSupabaseConfigured();
+
+    if (!useLocal) {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      if (serviceRoleKey && token === serviceRoleKey) {
+        const workerUserId = request.headers.get('x-worker-user-id');
+        if (!workerUserId) {
+          return NextResponse.json({ error: 'Unauthorized: Missing x-worker-user-id header for worker request.' }, { status: 400 });
+        }
+        user = { id: workerUserId };
+      } else {
+        const { data: authData, error: authError } = await supabase.auth.getUser(token);
+        
+        if (authError || !authData.user) {
+          return NextResponse.json({ error: 'Unauthorized: Authentication failed.' }, { status: 401 });
+        }
+        user = authData.user;
       }
-      user = { id: workerUserId };
-    } else {
-      const { data: authData, error: authError } = await supabase.auth.getUser(token);
-      
-      if (authError || !authData.user) {
-        return NextResponse.json({ error: 'Unauthorized: Authentication failed.' }, { status: 401 });
-      }
-      user = authData.user;
     }
     const bodyPayload = await request.json();
     const { method, path, body } = bodyPayload;
@@ -41,21 +50,28 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Fetch encrypted credentials
-    const { data: creds, error: credsError } = await supabase
-      .from('api_credentials')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
+    let creds: any = null;
+    if (useLocal) {
+      creds = getLocalCredentials();
+    } else {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data, error: credsError } = await supabase
+        .from('api_credentials')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-    if (credsError) {
-      if (credsError.code === 'PGRST116') {
-        return NextResponse.json({ error: 'ConfigurationError: api_credentials record not found in database.' }, { status: 400 });
+      if (credsError) {
+        if (credsError.code === 'PGRST116') {
+          return NextResponse.json({ error: 'ConfigurationError: api_credentials record not found in database.' }, { status: 400 });
+        }
+        return NextResponse.json({ error: `SystemError: Database error loading api credentials: ${credsError.message}` }, { status: 500 });
       }
-      return NextResponse.json({ error: `SystemError: Database error loading api credentials: ${credsError.message}` }, { status: 500 });
+      creds = data;
     }
 
     if (!creds) {
-      return NextResponse.json({ error: 'ConfigurationError: api_credentials record not found in database.' }, { status: 400 });
+      return NextResponse.json({ error: 'ConfigurationError: api_credentials record not found.' }, { status: 400 });
     }
 
     // Verify all required credential parts exist
@@ -137,16 +153,26 @@ export async function POST(request: NextRequest) {
 
         accountId = String(discoveredSeq);
 
-        // Persist to database
-        const { error: updateError } = await supabase
-          .from('api_credentials')
-          .update({ account_id: accountId, updated_at: new Date().toISOString() })
-          .eq('user_id', user.id);
-
-        if (updateError) {
-          console.error(`[TossProxy] Failed to persist account_id: ${updateError.message}`);
+        // Persist to database or local credentials
+        if (useLocal) {
+          saveLocalCredentials({
+            ...creds,
+            account_id: accountId,
+            updated_at: new Date().toISOString()
+          });
+          console.log(`[TossProxy] Successfully persisted local account_id: ${accountId}`);
         } else {
-          console.log(`[TossProxy] Successfully persisted account_id: ${accountId} for user ${user.id}`);
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const { error: updateError } = await supabase
+            .from('api_credentials')
+            .update({ account_id: accountId, updated_at: new Date().toISOString() })
+            .eq('user_id', user.id);
+
+          if (updateError) {
+            console.error(`[TossProxy] Failed to persist account_id: ${updateError.message}`);
+          } else {
+            console.log(`[TossProxy] Successfully persisted account_id: ${accountId} for user ${user.id}`);
+          }
         }
       } catch (err: any) {
         return NextResponse.json({ error: `SystemError: Account discovery failed: ${err.message}` }, { status: 500 });
